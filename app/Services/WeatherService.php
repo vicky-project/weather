@@ -5,6 +5,7 @@ namespace Modules\Weather\Services;
 use RakibDevs\Weather\Weather;
 use Modules\Telegram\Models\TelegramUser;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -12,9 +13,12 @@ class WeatherService
 {
   protected Weather $weatherClient;
   protected int $cacheDuration = 1800; // 30 menit
+  protected string $geocodingUrl = 'http://api.openweathermap.org/geo/1.0/direct';
+  protected string $apiKey;
 
   public function __construct() {
     $this->weatherClient = new Weather();
+    $this->apiKey = config('services.openweather.api_key');
   }
 
   /**
@@ -78,29 +82,110 @@ class WeatherService
   }
 
   /**
-  * Panggil API OpenWeatherMap via package.
+  * Panggil API OpenWeatherMap dengan fallback geocoding.
   */
   protected function fetchFromApi(array $location): ?array
   {
+    // Jika sudah punya koordinat, langsung gunakan
+    if (isset($location['latitude']) && isset($location['longitude'])) {
+      return $this->getWeatherByCoordinates($location['latitude'], $location['longitude']);
+    }
+
+    // Jika hanya punya nama kota, lakukan geocoding dulu
+    if (isset($location['city'])) {
+      return $this->getWeatherByCityName($location['city']);
+    }
+
+    return null;
+  }
+
+  /**
+  * Dapatkan cuaca berdasarkan koordinat.
+  */
+  protected function getWeatherByCoordinates(float $lat, float $lon): ?array
+  {
     try {
-      if (isset($location['city'])) {
-        $rawData = $this->weatherClient->getCurrentByCity($location['city']);
-      } else {
-        $rawData = $this->weatherClient->getCurrentByCord(
-          $location['latitude'],
-          $location['longitude']
-        );
-      }
-
-      // Validasi bahwa respons adalah objek dan memiliki properti yang diperlukan
-      if (!is_object($rawData) || !isset($rawData->weather) || !isset($rawData->main)) {
-        throw new \Exception('Respons API tidak valid atau kota tidak ditemukan');
-      }
-
+      $rawData = $this->weatherClient->getCurrentByCord($lat, $lon);
       return $this->formatWeatherData($rawData);
     } catch (Throwable $e) {
-      // Tangkap semua error termasuk notice/warning dari package
-      throw $e; // Lempar ulang agar ditangani oleh fetchWeatherWithCache
+      Log::warning('Gagal get weather by coordinates', [
+        'lat' => $lat,
+        'lon' => $lon,
+        'error' => $e->getMessage()
+      ]);
+      return null;
+    }
+  }
+
+  /**
+  * Dapatkan cuaca berdasarkan nama kota dengan fallback geocoding.
+  */
+  protected function getWeatherByCityName(string $city): ?array
+  {
+    // Coba langsung dengan nama kota (kemungkinan berhasil jika nama unik)
+    try {
+      $rawData = $this->weatherClient->getCurrentByCity($city);
+      return $this->formatWeatherData($rawData);
+    } catch (Throwable $e) {
+      Log::info('Lang sunggagal, coba geocoding', ['city' => $city]);
+    }
+
+    // Fallback: lakukan geocoding untuk mendapatkan koordinat
+    $coordinates = $this->geocodeCity($city);
+    if (!$coordinates) {
+      return null;
+    }
+
+    // Ambil cuaca berdasarkan koordinat
+    return $this->getWeatherByCoordinates($coordinates['lat'], $coordinates['lon']);
+  }
+
+  /**
+  * Geocoding: dapatkan koordinat dari nama kota.
+  */
+  protected function geocodeCity(string $city): ?array
+  {
+    try {
+      $response = Http::get($this->geocodingUrl, [
+        'q' => $city,
+        'limit' => 5,
+        'appid' => $this->apiKey,
+      ]);
+
+      if (!$response->successful()) {
+        Log::warning('Geocoding API gagal', ['city' => $city, 'status' => $response->status()]);
+        return null;
+      }
+
+      $locations = $response->json();
+      if (empty($locations)) {
+        Log::info('Kota tidak ditemukan di geocoding', ['city' => $city]);
+        return null;
+      }
+
+      // Ambil lokasi pertama (paling relevan)
+      $bestMatch = $locations[0];
+
+      Log::info('Geocoding berhasil', [
+        'city' => $city,
+        'found' => $bestMatch['name'],
+        'country' => $bestMatch['country'],
+        'lat' => $bestMatch['lat'],
+        'lon' => $bestMatch['lon']
+      ]);
+
+      return [
+        'lat' => $bestMatch['lat'],
+        'lon' => $bestMatch['lon'],
+        'name' => $bestMatch['name'],
+        'country' => $bestMatch['country'] ?? null
+      ];
+    } catch (Throwable $e) {
+      Log::error('Geocoding exception', [
+        'city' => $city,
+        'error' => $e->getMessage()
+      ]);
+      return null;
     }
   }
 
