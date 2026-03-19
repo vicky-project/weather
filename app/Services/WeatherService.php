@@ -6,11 +6,12 @@ use RakibDevs\Weather\Weather;
 use Modules\Telegram\Models\TelegramUser;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class WeatherService
 {
   protected Weather $weatherClient;
-  protected int $cacheDuration = 1800; // 30 menit dalam detik
+  protected int $cacheDuration = 1800; // 30 menit
 
   public function __construct() {
     $this->weatherClient = new Weather();
@@ -25,7 +26,6 @@ class WeatherService
     if (!$location) {
       return null;
     }
-
     return $this->fetchWeatherWithCache($location);
   }
 
@@ -43,80 +43,69 @@ class WeatherService
     } else {
       return null;
     }
-
     return $this->fetchWeatherWithCache($location);
   }
 
   /**
   * Ambil data cuaca dengan cache.
-  *
-  * @param array $location (berisi 'city' atau 'latitude'+'longitude')
-  * @return array|null
   */
   protected function fetchWeatherWithCache(array $location): ?array
   {
     $cacheKey = $this->generateCacheKey($location);
 
-    return Cache::remember($cacheKey, $this->cacheDuration, function () use ($location) {
-      try {
-        if (isset($location['city'])) {
-          $weatherData = $this->weatherClient->getCurrentByCity($location['city']);
-        } else {
-          $weatherData = $this->weatherClient->getCurrentByCord(
-            $location['latitude'],
-            $location['longitude']
-          );
-        }
-
-        return $this->formatWeatherData($weatherData);
-      } catch (\Exception $e) {
-        Log::error('Gagal mengambil data cuaca dari API', [
-          'location' => $location,
-          'error' => $e->getMessage(),
-          'trace' => $e->getTraceAsString()
-        ]);
-        return null;
-      }
-    });
-  }
-
-  /**
-  * Generate unique cache key based on location.
-  */
-  protected function generateCacheKey(array $location): string
-  {
-    if (isset($location['city'])) {
-      return 'weather_' . md5(strtolower(trim($location['city'])));
+    // Coba ambil dari cache
+    $cached = Cache::get($cacheKey);
+    if ($cached !== null) {
+      return $cached;
     }
-    return 'weather_' . md5("{$location['latitude']},{$location['longitude']}");
+
+    // Jika tidak ada, panggil API
+    try {
+      $weatherData = $this->fetchFromApi($location);
+      if ($weatherData) {
+        Cache::put($cacheKey, $weatherData, $this->cacheDuration);
+        return $weatherData;
+      }
+    } catch (Throwable $e) {
+      Log::error('Gagal mengambil data cuaca dari API', [
+        'location' => $location,
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+      ]);
+    }
+
+    return null;
   }
 
   /**
-  * Ekstrak lokasi default dari field 'data' pengguna.
+  * Panggil API OpenWeatherMap via package.
   */
-  protected function getUserDefaultLocation(TelegramUser $telegramUser): ?array
+  protected function fetchFromApi(array $location): ?array
   {
-    $data = $telegramUser->data ?? [];
-    return $data['default_location'] ?? null;
+    try {
+      if (isset($location['city'])) {
+        $rawData = $this->weatherClient->getCurrentByCity($location['city']);
+      } else {
+        $rawData = $this->weatherClient->getCurrentByCord(
+          $location['latitude'],
+          $location['longitude']
+        );
+      }
+
+      // Validasi bahwa respons adalah objek dan memiliki properti yang diperlukan
+      if (!is_object($rawData) || !isset($rawData->weather) || !isset($rawData->main)) {
+        throw new \Exception('Respons API tidak valid atau kota tidak ditemukan');
+      }
+
+      return $this->formatWeatherData($rawData);
+    } catch (Throwable $e) {
+      // Tangkap semua error termasuk notice/warning dari package
+      throw $e; // Lempar ulang agar ditangani oleh fetchWeatherWithCache
+    }
   }
 
   /**
-  * Simpan atau perbarui lokasi default pengguna.
-  */
-  public function updateUserSettings(TelegramUser $telegramUser, array $locationData, bool $notificationsEnabled): void
-  {
-    $currentData = $telegramUser->data ?? [];
-    $currentData['default_location'] = $locationData;
-    $currentData['weather_notifications'] = $notificationsEnabled;
-    $telegramUser->data = $currentData;
-    $telegramUser->save();
-
-    // Hapus cache lama jika ada (opsional, karena lokasi baru akan punya key berbeda)
-    // Tapi jika user mengganti lokasi, kita bisa hapus cache untuk lokasi lama? Tidak perlu karena key berbeda.
-  }
-
-  /**
-  * Format data dari package.
+  * Format data cuaca dengan aman.
   */
   protected function formatWeatherData(object $rawData): array
   {
@@ -126,6 +115,7 @@ class WeatherService
     $wind = $rawData->wind ?? null;
     $clouds = $rawData->clouds ?? null;
     $sys = $rawData->sys ?? null;
+    $visibility = $rawData->visibility ?? null;
 
     return [
       'location' => [
@@ -141,6 +131,7 @@ class WeatherService
         'pressure' => $main->pressure ?? 0,
         'wind_speed' => $wind->speed ?? 0,
         'clouds' => $clouds->all ?? 0,
+        'visibility' => $visibility,
       ],
       'weather' => [
         'main' => $weather->main ?? null,
@@ -153,5 +144,37 @@ class WeatherService
       ],
       'updated_at' => now()->toIso8601String(),
     ];
+  }
+
+  /**
+  * Generate cache key.
+  */
+  protected function generateCacheKey(array $location): string
+  {
+    if (isset($location['city'])) {
+      return 'weather_' . md5(strtolower(trim($location['city'])));
+    }
+    return 'weather_' . md5("{$location['latitude']},{$location['longitude']}");
+  }
+
+  /**
+  * Ambil lokasi default dari data pengguna.
+  */
+  protected function getUserDefaultLocation(TelegramUser $telegramUser): ?array
+  {
+    $data = $telegramUser->data ?? [];
+    return $data['default_location'] ?? null;
+  }
+
+  /**
+  * Simpan pengaturan pengguna.
+  */
+  public function updateUserSettings(TelegramUser $telegramUser, array $locationData, bool $notificationsEnabled): void
+  {
+    $currentData = $telegramUser->data ?? [];
+    $currentData['default_location'] = $locationData;
+    $currentData['weather_notifications'] = $notificationsEnabled;
+    $telegramUser->data = $currentData;
+    $telegramUser->save();
   }
 }
