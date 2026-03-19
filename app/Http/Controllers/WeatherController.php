@@ -30,8 +30,7 @@ class WeatherController extends Controller
   * Bisa berdasarkan pengguna yang sudah login (dari middleware) atau input manual.
   */
   public function getWeather(Request $request) {
-    $tgUser = $request->get('telegram_user'); // Bisa null jika tidak ada
-    $telegramUser = TelegramUser::find($tgUser["id"]);
+    $telegramUser = $request->get('telegram_user'); // Bisa null jika tidak ada
 
     $data = null;
 
