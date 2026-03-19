@@ -1,0 +1,35 @@
+{
+  "name": "vicky-project/weather-module",
+  "type": "laravel-module",
+  "description": "Provide weather module",
+  "license": "MIT",
+  "authors": [{
+    "name": "Vicky Rahman",
+    "email": "pratamavr@gmail.com"
+  }],
+  "require": {
+    "php": "^8.2",
+    "joshbrw/laravel-module-installer": "^1.0",
+    "rakibdevs/openweather-laravel-api": "^1.9",
+    "vicky-project/users-module": "^1.0",
+    "vicky-project/telegram-module": "^1.0"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [],
+      "aliases": {}
+    }
+  },
+  "autoload": {
+    "psr-4": {
+      "Modules\\Weather\\": "app/",
+      "Modules\\Weathr\\Database\\Factories\\": "database/factories/",
+      "Modules\\Weather\\Database\\Seeders\\": "database/seeders/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Modules\\Weather\\Tests\\": "tests/"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Weather",
+  "alias": "weather",
+  "description": "",
+  "keywords": [],
+  "priority": 0,
+  "providers": [
+    "Modules\\Weather\\Providers\\WeatherServiceProvider"
+  ],
+  "files": []
+}
