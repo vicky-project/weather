@@ -55,6 +55,7 @@ class WeatherService
   */
   protected function fetchWeatherWithCache(array $location): ?array
   {
+    Log::debug("location input", ["location" => $location]);
     $cacheKey = $this->generateCacheKey($location);
 
     return Cache::remember($cacheKey, $this->cacheDuration, function () use ($location) {
