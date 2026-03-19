@@ -55,6 +55,7 @@ class WeatherService
   */
   protected function fetchWeatherWithCache(array $location): ?array
   {
+    Log::debug("location", $location);
     if (isset($location['city'])) {
       $weatherData = $this->weatherClient->getCurrentByCity($location['city']);
     } else {
