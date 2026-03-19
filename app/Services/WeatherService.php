@@ -67,6 +67,7 @@ class WeatherService
             $location['longitude']
           );
         }
+        Log::debug("weather data", ["data" => $weatherData]);
 
         return $this->formatWeatherData($weatherData);
       } catch (\Exception $e) {
