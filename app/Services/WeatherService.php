@@ -72,7 +72,8 @@ class WeatherService
       } catch (\Exception $e) {
         Log::error('Gagal mengambil data cuaca dari API', [
           'location' => $location,
-          'error' => $e->getMessage()
+          'error' => $e->getMessage(),
+          'trace' => $e->getTraceAsString()
         ]);
         return null;
       }
