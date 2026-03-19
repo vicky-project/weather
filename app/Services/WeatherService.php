@@ -55,7 +55,16 @@ class WeatherService
   */
   protected function fetchWeatherWithCache(array $location): ?array
   {
-    Log::debug("location input", ["location" => $location]);
+    if (isset($location['city'])) {
+      $weatherData = $this->weatherClient->getCurrentByCity($location['city']);
+    } else {
+      $weatherData = $this->weatherClient->getCurrentByCord(
+        $location['latitude'],
+        $location['longitude']
+      );
+    }
+    Log::debug("weather data", ["data" => $weatherData]);
+
     $cacheKey = $this->generateCacheKey($location);
 
     return Cache::remember($cacheKey, $this->cacheDuration, function () use ($location) {
@@ -68,7 +77,6 @@ class WeatherService
             $location['longitude']
           );
         }
-        Log::debug("weather data", ["data" => $weatherData]);
 
         return $this->formatWeatherData($weatherData);
       } catch (\Exception $e) {
