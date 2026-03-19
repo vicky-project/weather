@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\Prayer\Providers;
+namespace Modules\Weather\Providers;
 
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schedule;
@@ -8,7 +8,6 @@ use Illuminate\Support\ServiceProvider;
 use Nwidart\Modules\Traits\PathNamespace;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use Modules\Prayer\Services\PrayerTimeService;
 
 class WeatherServiceProvider extends ServiceProvider
 {
