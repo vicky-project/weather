@@ -8,5 +8,5 @@ Route::prefix('apps')
 ->middleware(['web', 'telegram.miniapp'])
 ->group(function () {
   Route::get('weather', [WeatherController::class, "index"])->name('weather');
-  Route::get('weather', [WeatherController::class, "settings"])->name('weather.settings');
+  Route::get('weather/settings', [WeatherController::class, "settings"])->name('weather.settings');
 });
