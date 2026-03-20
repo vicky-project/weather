@@ -9,11 +9,16 @@
         <a href="{{ route('telegram.home') }}" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-left me-2"></i>Kembali
         </a>
-        @if($telegramUser)
-        <a href="{{ route('apps.weather.settings') }}" class="btn btn-outline-secondary">
-          <i class="bi bi-gear-fill fs-5"></i>
-        </a>
-        @endif
+        <div>
+          @if($telegramUser)
+          <a href="{{ route('apps.weather.settings') }}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-gear-fill"></i>
+          </a>
+          @endif
+          <button class="btn btn-outline-secondary" id="changeLocationBtn">
+            <i class="bi bi-search"></i> Ganti Lokasi
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -25,7 +30,7 @@
           <h4 class="mb-0"><i class="bi bi-cloud-sun me-2"></i>Informasi Cuaca</h4>
         </div>
         <div class="card-body" id="weatherApp">
-          {{-- Konten akan diisi oleh JavaScript --}}
+          {{-- Konten diisi JavaScript --}}
         </div>
       </div>
     </div>
@@ -118,8 +123,9 @@
 @push('scripts')
 <script>
   // State management
-  let currentState = 'loading'; // 'loading', 'denied', 'unavailable', 'manual', 'error', 'loaded'
+  let currentState = 'loading'; // loading, denied, unavailable, manual, error, loaded
   let errorMessage = '';
+  let usingDefault = true; // apakah sedang menampilkan lokasi default
   let locationTimeout;
 
   const hasDefaultLocation = @json($telegramUser && isset($telegramUser->data['default_location']) && !empty($telegramUser->data['default_location']));
@@ -290,9 +296,16 @@
       <i class="bi bi-clock me-1"></i>Diperbarui: ${new Date(w.updated_at).toLocaleTimeString('id-ID')}
       </div>
 
-      <button class="btn btn-outline-primary w-100 mt-3" onclick="refreshWeather()">
+      <div class="d-flex gap-2">
+      <button class="btn btn-outline-primary flex-grow-1" onclick="refreshWeather()">
       <i class="bi bi-arrow-repeat me-2"></i>Perbarui
       </button>
+      ${!usingDefault && hasDefaultLocation ? `
+      <button class="btn btn-outline-secondary" onclick="useDefaultLocation()">
+      <i class="bi bi-house me-2"></i>Kembali ke Default
+      </button>
+      `: ''}
+      </div>
       </div>
       `;
     }
@@ -308,13 +321,13 @@
 
   function initWeather() {
     if (hasDefaultLocation && defaultLocation) {
+      usingDefault = true;
       if (defaultLocation.city) {
         fetchWeather(null, null, defaultLocation.city);
       } else if (defaultLocation.latitude && defaultLocation.longitude) {
         fetchWeather(defaultLocation.latitude, defaultLocation.longitude);
       } else {
-        // default location tidak valid, fallback ke request lokasi
-        requestLocation();
+        requestLocation(); // fallback
       }
       return;
     }
@@ -322,6 +335,7 @@
   }
 
   function requestLocation() {
+    usingDefault = false;
     currentState = 'loading';
     buildUI();
 
@@ -407,11 +421,24 @@
     const city = document.getElementById('city')?.value;
 
     if (lat && lon) {
+      usingDefault = false;
       fetchWeather(parseFloat(lat), parseFloat(lon), null);
     } else if (city) {
+      usingDefault = false;
       fetchWeather(null, null, city);
     } else {
       alert('Masukkan kota atau koordinat yang valid.');
+    }
+  };
+
+  window.useDefaultLocation = function() {
+    if (hasDefaultLocation && defaultLocation) {
+      usingDefault = true;
+      if (defaultLocation.city) {
+        fetchWeather(null, null, defaultLocation.city);
+      } else if (defaultLocation.latitude && defaultLocation.longitude) {
+        fetchWeather(defaultLocation.latitude, defaultLocation.longitude);
+      }
     }
   };
 
@@ -420,8 +447,6 @@
     buildUI();
 
     const initData = window.Telegram?.WebApp?.initData || '';
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
     const body = {};
     if (city) {
       body.city = city;
@@ -435,8 +460,7 @@
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': initData,
-        'X-CSRF-TOKEN': csrfToken
+        'X-Telegram-Init-Data': initData
       },
       body: JSON.stringify(body)
     })
@@ -463,6 +487,7 @@
   window.refreshWeather = function() {
     if (window.weatherData) {
       const loc = window.weatherData.location;
+      usingDefault = false; // setelah refresh, kita anggap bukan default lagi
       fetchWeather(loc.latitude, loc.longitude);
     } else {
       initWeather();
@@ -471,6 +496,7 @@
 
   document.addEventListener('DOMContentLoaded', function() {
   initWeather();
+  document.getElementById('changeLocationBtn').addEventListener('click', () => showManualInput());
   });
 </script>
 @endpush

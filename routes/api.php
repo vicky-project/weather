@@ -4,5 +4,6 @@ use Illuminate\Support\Facades\Route;
 use Modules\Weather\Http\Controllers\WeatherController;
 
 Route::prefix('weather')->name('weather.')->group(function () {
-  Route::get("current", [WeatherController ::class, "current"])->name("current");
+  Route::post("current", [WeatherController ::class, "getWeather"])->name("current");
+  Route::post("settings", [WeatherController ::class, "saveSettings"])->middleware("telegram.miniapp")->name("save-settings");
 });
