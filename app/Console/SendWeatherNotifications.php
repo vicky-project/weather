@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Modules\Telegram\Models\TelegramUser;
 use Modules\Weather\Services\WeatherService;
 use Modules\Telegram\Services\Support\TelegramApi;
+use Modules\Telegram\Services\Support\TelegramMarkdownHelper;
 use Carbon\Carbon;
 
 class SendWeatherNotifications extends Command
@@ -65,7 +66,7 @@ class SendWeatherNotifications extends Command
       }
 
       $message = $this->formatWeatherMessage($weatherData);
-      $sent = $this->telegramApi->sendMessage($user->telegram_id, $message, 'MarkdownV2');
+      $sent = $this->telegramApi->sendMessage($user->telegram_id, TelegramMarkdownHelper::safeText($message, "MarkdownV2"), 'MarkdownV2');
 
       if ($sent) {
         // Simpan catatan pengiriman
