@@ -106,6 +106,7 @@ class WeatherService
   {
     try {
       $rawData = $this->weatherClient->getCurrentByCord($lat, $lon);
+      Log::debug("Raw data", ["raw" => $rawData]);
       return $this->formatWeatherData($rawData);
     } catch (Throwable $e) {
       Log::warning('Gagal get weather by coordinates', [
