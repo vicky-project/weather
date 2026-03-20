@@ -60,6 +60,7 @@ class WeatherServiceProvider extends ServiceProvider
   protected function registerCommands(): void
   {
     $this->commands([
+      \Modules\Weather\Console\SendWeatherNotifications::class
     ]);
   }
 
@@ -70,7 +71,7 @@ class WeatherServiceProvider extends ServiceProvider
   {
     $this->app->booted(function () {
       //     $schedule = $this->app->make(Schedule::class);
-      //Schedule::command('app:prayer-sent')->everyMinute();
+      Schedule::command('app:weather-sent')->twiceDaily(6, 18);
     });
   }
 
