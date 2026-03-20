@@ -106,7 +106,6 @@ class WeatherService
   {
     try {
       $rawData = $this->weatherClient->getCurrentByCord($lat, $lon);
-      Log::debug("Raw data", ["raw" => $rawData]);
       return $this->formatWeatherData($rawData);
     } catch (Throwable $e) {
       Log::warning('Gagal get weather by coordinates', [
@@ -128,7 +127,7 @@ class WeatherService
       $rawData = $this->weatherClient->getCurrentByCity($city);
       return $this->formatWeatherData($rawData);
     } catch (Throwable $e) {
-      Log::info('Langsung gagal, coba geocoding', ['city' => $city]);
+      Log::info('Lang sunggagal, coba geocoding', ['city' => $city]);
     }
 
     // Fallback: lakukan geocoding untuk mendapatkan koordinat
@@ -142,11 +141,18 @@ class WeatherService
   }
 
   /**
-  * Geocoding: dapatkan koordinat dari nama kota.
+  * Geocoding: dapatkan koordinat dari nama kota dengan prioritas Indonesia.
   */
   protected function geocodeCity(string $city): ?array
   {
     try {
+      // 1. Cari di Indonesia terlebih dahulu
+      $indonesianLocation = $this->searchGeocoding($city, 'ID');
+      if ($indonesianLocation) {
+        return $indonesianLocation;
+      }
+
+      // 2. Jika tidak ditemukan, cari tanpa batasan negara
       $response = Http::get($this->geocodingUrl, [
         'q' => $city,
         'limit' => 5,
@@ -154,33 +160,35 @@ class WeatherService
       ]);
 
       if (!$response->successful()) {
-        Log::warning('Geocoding API gagal', ['city' => $city, 'status' => $response->status()]);
         return null;
       }
 
       $locations = $response->json();
       if (empty($locations)) {
-        Log::info('Kota tidak ditemukan di geocoding', ['city' => $city]);
         return null;
       }
 
-      // Ambil lokasi pertama (paling relevan)
-      $bestMatch = $locations[0];
+      // 3. Filter dan urutkan hasil: prioritas nama persis, negara ID, populasi
+      $filtered = $this->filterAndSortLocations($locations, $city);
+      $best = $filtered[0] ?? null;
 
-      Log::info('Geocoding berhasil', [
-        'city' => $city,
-        'found' => $bestMatch['name'],
-        'country' => $bestMatch['country'],
-        'lat' => $bestMatch['lat'],
-        'lon' => $bestMatch['lon']
-      ]);
+      if ($best) {
+        Log::info('Geocoding berhasil (fallback)', [
+          'city' => $city,
+          'found' => $best['name'],
+          'country' => $best['country'],
+          'lat' => $best['lat'],
+          'lon' => $best['lon']
+        ]);
+        return [
+          'lat' => $best['lat'],
+          'lon' => $best['lon'],
+          'name' => $best['name'],
+          'country' => $best['country'] ?? null
+        ];
+      }
 
-      return [
-        'lat' => $bestMatch['lat'],
-        'lon' => $bestMatch['lon'],
-        'name' => $bestMatch['name'],
-        'country' => $bestMatch['country'] ?? null
-      ];
+      return null;
     } catch (Throwable $e) {
       Log::error('Geocoding exception', [
         'city' => $city,
@@ -188,6 +196,93 @@ class WeatherService
       ]);
       return null;
     }
+  }
+
+  /**
+  * Cari geocoding dengan filter negara.
+  */
+  protected function searchGeocoding(string $city, ?string $countryCode = null): ?array
+  {
+    $params = [
+      'q' => $city,
+      'limit' => 5,
+      'appid' => $this->apiKey,
+    ];
+    if ($countryCode) {
+      $params['country'] = $countryCode;
+    }
+
+    $response = Http::get($this->geocodingUrl, $params);
+    if (!$response->successful()) {
+      return null;
+    }
+
+    $locations = $response->json();
+    if (empty($locations)) {
+      return null;
+    }
+
+    $filtered = $this->filterAndSortLocations($locations, $city);
+    $best = $filtered[0] ?? null;
+
+    if ($best) {
+      Log::info('Geocoding berhasil (dengan filter negara)', [
+        'city' => $city,
+        'country' => $countryCode,
+        'found' => $best['name'],
+        'lat' => $best['lat'],
+        'lon' => $best['lon']
+      ]);
+      return [
+        'lat' => $best['lat'],
+        'lon' => $best['lon'],
+        'name' => $best['name'],
+        'country' => $best['country'] ?? null
+      ];
+    }
+
+    return null;
+  }
+
+  /**
+  * Filter dan urutkan hasil geocoding berdasarkan skor relevansi.
+  */
+  protected function filterAndSortLocations(array $locations, string $searchCity): array
+  {
+    $searchCityLower = strtolower(trim($searchCity));
+
+    $scored = array_map(function ($loc) use ($searchCityLower) {
+      $score = 0;
+      $nameLower = strtolower($loc['name']);
+      $country = $loc['country'] ?? '';
+
+      // Bonus jika nama sama persis
+      if ($nameLower === $searchCityLower) {
+        $score += 100;
+      }
+      // Bonus jika nama mengandung kata yang dicari
+      elseif (strpos($nameLower, $searchCityLower) !== false) {
+        $score += 50;
+      }
+      // Bonus jika di Indonesia
+      if ($country === 'ID') {
+        $score += 80;
+      }
+      // Bonus jika populasi besar (jika ada)
+      if (isset($loc['population'])) {
+        $score += min(50, floor($loc['population'] / 1000000));
+      }
+      return array_merge($loc, ['score' => $score]);
+    },
+      $locations);
+
+    // Urutkan berdasarkan skor tertinggi
+    usort($scored,
+      function ($a, $b) {
+        return $b['score'] <=> $a['score'];
+      });
+
+    return $scored;
   }
 
   /**
@@ -225,8 +320,10 @@ class WeatherService
         'icon' => $weather->icon ?? null,
       ],
       'sun' => [
-        'rise' => isset($sys->sunrise) ? date('H:i', $sys->sunrise) : null,
-        'set' => isset($sys->sunset) ? date('H:i', $sys->sunset) : null,
+        'rise' => isset($sys->sunrise) ? date('H:i',
+          $sys->sunrise) : null,
+        'set' => isset($sys->sunset) ? date('H:i',
+          $sys->sunset) : null,
       ],
       'updated_at' => now()->toIso8601String(),
     ];
