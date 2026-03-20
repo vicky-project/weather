@@ -85,7 +85,83 @@
 
 @push('styles')
 <style>
-  /* (gaya sama seperti sebelumnya, atau bisa gunakan yang sudah ada) */
+  /* Tema Telegram */
+  body {
+    background-color: var(--tg-theme-bg-color);
+    color: var(--tg-theme-text-color);
+  }
+  .card {
+    background-color: var(--tg-theme-secondary-bg-color);
+    border: none;
+  }
+  .card-header {
+    background-color: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+    border-bottom: none;
+  }
+  .btn-primary {
+    background-color: var(--tg-theme-button-color);
+    border-color: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+  }
+  .btn-outline-primary {
+    color: var(--tg-theme-button-color);
+    border-color: var(--tg-theme-button-color);
+  }
+  .btn-outline-primary:hover {
+    background-color: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+  }
+  .btn-outline-secondary {
+    color: var(--tg-theme-hint-color);
+    border-color: var(--tg-theme-hint-color);
+  }
+  .btn-outline-secondary:hover {
+    background-color: var(--tg-theme-hint-color);
+    color: var(--tg-theme-button-text-color);
+  }
+  .text-muted {
+    color: var(--tg-theme-hint-color) !important;
+  }
+  .spinner-border {
+    color: var(--tg-theme-button-color) !important;
+  }
+  .weather-icon {
+    font-size: 4rem;
+    line-height: 1;
+  }
+  .temperature {
+    font-size: 3.5rem;
+    font-weight: 300;
+    line-height: 1.2;
+  }
+  .detail-item {
+    background-color: var(--tg-theme-section-bg-color);
+    border-radius: 12px;
+    padding: 12px 8px;
+    text-align: center;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .detail-item i {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+    color: var(--tg-theme-button-color);
+  }
+  .detail-item .value {
+    font-size: 1.2rem;
+    font-weight: 500;
+  }
+  .detail-item .label {
+    font-size: 0.8rem;
+    color: var(--tg-theme-hint-color);
+  }
+  .timeout-option {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
 </style>
 @endpush
 
