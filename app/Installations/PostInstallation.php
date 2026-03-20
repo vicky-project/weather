@@ -13,8 +13,6 @@ class PostInstallation
         $module = Module::find($modulename);
         $module->enable();
       }
-
-      // Artisan::call("migrate");
     } catch (\Exception $e) {
       logger()->error(
         "Failed to run post installation of weather module: " .
