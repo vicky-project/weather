@@ -197,7 +197,7 @@
   headers: {
   'Accept': 'application/json',
   'Content-Type': 'application/json',
-  'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || ''
+  'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || @json(request()->get('initData', ''))
   },
   body: JSON.stringify(formData)
   });
