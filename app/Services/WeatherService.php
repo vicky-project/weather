@@ -57,13 +57,11 @@ class WeatherService
   {
     $cacheKey = $this->generateCacheKey($location);
 
-    // Coba ambil dari cache
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
       return $cached;
     }
 
-    // Jika tidak ada, panggil API
     try {
       $weatherData = $this->fetchFromApi($location);
       if ($weatherData) {
@@ -86,12 +84,10 @@ class WeatherService
   */
   protected function fetchFromApi(array $location): ?array
   {
-    // Jika sudah punya koordinat, langsung gunakan
     if (isset($location['latitude']) && isset($location['longitude'])) {
       return $this->getWeatherByCoordinates($location['latitude'], $location['longitude']);
     }
 
-    // Jika hanya punya nama kota, lakukan geocoding dulu
     if (isset($location['city'])) {
       return $this->getWeatherByCityName($location['city']);
     }
@@ -100,12 +96,29 @@ class WeatherService
   }
 
   /**
-  * Dapatkan cuaca berdasarkan koordinat.
+  * Dapatkan cuaca berdasarkan koordinat dengan validasi respons.
   */
   protected function getWeatherByCoordinates(float $lat, float $lon): ?array
   {
     try {
       $rawData = $this->weatherClient->getCurrentByCord($lat, $lon);
+
+      // Validasi respons
+      if (!is_object($rawData)) {
+        throw new \Exception('Respons API tidak valid (bukan objek)');
+      }
+
+      // Cek apakah ada properti 'cod' dan bernilai 200 (sukses)
+      if (property_exists($rawData, 'cod') && $rawData->cod != 200) {
+        $message = property_exists($rawData, 'message') ? $rawData->message : 'Unknown error';
+        throw new \Exception("API error: $message");
+      }
+
+      // Pastikan properti yang diperlukan ada
+      if (!isset($rawData->weather) || !isset($rawData->main)) {
+        throw new \Exception('Data cuaca tidak lengkap');
+      }
+
       return $this->formatWeatherData($rawData);
     } catch (Throwable $e) {
       Log::warning('Gagal get weather by coordinates', [
@@ -122,17 +135,24 @@ class WeatherService
   */
   protected function getWeatherByCityName(string $city): ?array
   {
-    // Coba langsung dengan nama kota (kemungkinan berhasil jika nama unik)
+    // Coba langsung dengan nama kota
     try {
       $rawData = $this->weatherClient->getCurrentByCity($city);
-      return $this->formatWeatherData($rawData);
+      if (is_object($rawData) && property_exists($rawData, 'cod') && $rawData->cod == 200) {
+        return $this->formatWeatherData($rawData);
+      }
+      // Jika response sukses tapi cod tidak 200, lemparkan exception
+      if (is_object($rawData) && property_exists($rawData, 'cod')) {
+        throw new \Exception("API error: " . ($rawData->message ?? 'Unknown'));
+      }
     } catch (Throwable $e) {
-      Log::info('Lang sunggagal, coba geocoding', ['city' => $city]);
+      Log::info('Langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
     }
 
-    // Fallback: lakukan geocoding untuk mendapatkan koordinat
+    // Fallback: geocoding
     $coordinates = $this->geocodeCity($city);
     if (!$coordinates) {
+      Log::warning('Geocoding gagal untuk kota', ['city' => $city]);
       return null;
     }
 
@@ -152,7 +172,7 @@ class WeatherService
         return $indonesianLocation;
       }
 
-      // 2. Jika tidak ditemukan, cari tanpa batasan negara
+      // 2. Cari global
       $response = Http::get($this->geocodingUrl, [
         'q' => $city,
         'limit' => 5,
@@ -168,18 +188,10 @@ class WeatherService
         return null;
       }
 
-      // 3. Filter dan urutkan hasil: prioritas nama persis, negara ID, populasi
       $filtered = $this->filterAndSortLocations($locations, $city);
       $best = $filtered[0] ?? null;
 
       if ($best) {
-        Log::info('Geocoding berhasil (fallback)', [
-          'city' => $city,
-          'found' => $best['name'],
-          'country' => $best['country'],
-          'lat' => $best['lat'],
-          'lon' => $best['lon']
-        ]);
         return [
           'lat' => $best['lat'],
           'lon' => $best['lon'],
@@ -226,13 +238,6 @@ class WeatherService
     $best = $filtered[0] ?? null;
 
     if ($best) {
-      Log::info('Geocoding berhasil (dengan filter negara)', [
-        'city' => $city,
-        'country' => $countryCode,
-        'found' => $best['name'],
-        'lat' => $best['lat'],
-        'lon' => $best['lon']
-      ]);
       return [
         'lat' => $best['lat'],
         'lon' => $best['lon'],
@@ -256,19 +261,14 @@ class WeatherService
       $nameLower = strtolower($loc['name']);
       $country = $loc['country'] ?? '';
 
-      // Bonus jika nama sama persis
       if ($nameLower === $searchCityLower) {
         $score += 100;
-      }
-      // Bonus jika nama mengandung kata yang dicari
-      elseif (strpos($nameLower, $searchCityLower) !== false) {
+      } elseif (strpos($nameLower, $searchCityLower) !== false) {
         $score += 50;
       }
-      // Bonus jika di Indonesia
       if ($country === 'ID') {
         $score += 80;
       }
-      // Bonus jika populasi besar (jika ada)
       if (isset($loc['population'])) {
         $score += min(50, floor($loc['population'] / 1000000));
       }
@@ -276,7 +276,6 @@ class WeatherService
     },
       $locations);
 
-    // Urutkan berdasarkan skor tertinggi
     usort($scored,
       function ($a, $b) {
         return $b['score'] <=> $a['score'];
