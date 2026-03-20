@@ -365,4 +365,22 @@ class WeatherService
     $telegramUser->data = $currentData;
     $telegramUser->save();
   }
+
+  /**
+  * Mendapatkan setting pengguna
+  */
+  public function getUserSettings($telegramUserId) {
+    $user = TelegramUser::find($telegramUserId);
+    if (!$user) {
+      return null;
+    }
+    $data = $user->data ?? [];
+    // Buat object untuk view
+    return (object) [
+      'city' => $data['default_location']['city'] ?? null,
+      'latitude' => $data['default_location']['latitude'] ?? null,
+      'longitude' => $data['default_location']['longitude'] ?? null,
+      'notifications_enabled' => $data['weather_notifications'] ?? false
+    ];
+  }
 }

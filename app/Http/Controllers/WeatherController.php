@@ -25,6 +25,13 @@ class WeatherController extends Controller
     return view('weather::index', compact('telegramUser'));
   }
 
+  public function settings() {
+    $tgUser = $request->get('telegram_user'); // Dari middleware
+    $telegramUser = TelegramUser::find($tgUser["id"]);
+    $settings = $this->weatherService->getUserSettings($telegramUser->id);
+    return view("weather::settings", compact("telegramUser", "settings"));
+  }
+
   /**
   * API untuk mendapatkan data cuaca.
   * Bisa berdasarkan pengguna yang sudah login (dari middleware) atau input manual.
