@@ -10,7 +10,7 @@ use Throwable;
 
 class WeatherService
 {
-  protected int $cacheDuration = 1800; // 30 menit
+  protected int $cacheDuration = 900; // 30 menit
   protected string $geocodingUrl = 'http://api.openweathermap.org/geo/1.0/direct';
   protected string $weatherUrl = 'https://api.openweathermap.org/data/2.5/weather';
   protected string $apiKey;
