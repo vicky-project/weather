@@ -61,6 +61,7 @@ class WeatherService
     if ($cached !== null) {
       return $cached;
     }
+    Log::debug("Location", ["Location" => $location]);
 
     try {
       $weatherData = $this->fetchFromApi($location);
