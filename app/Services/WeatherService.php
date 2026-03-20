@@ -127,7 +127,7 @@ class WeatherService
       $rawData = $this->weatherClient->getCurrentByCity($city);
       return $this->formatWeatherData($rawData);
     } catch (Throwable $e) {
-      Log::info('Lang sunggagal, coba geocoding', ['city' => $city]);
+      Log::info('Langsung gagal, coba geocoding', ['city' => $city]);
     }
 
     // Fallback: lakukan geocoding untuk mendapatkan koordinat
