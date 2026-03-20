@@ -10,7 +10,6 @@
   "require": {
     "php": "^8.2",
     "joshbrw/laravel-module-installer": "^1.0",
-    "rakibdevs/openweather-laravel-api": "^1.9",
     "vicky-project/users-module": "^1.0",
     "vicky-project/telegram-module": "^1.0"
   },
