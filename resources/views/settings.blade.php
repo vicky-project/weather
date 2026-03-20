@@ -83,6 +83,12 @@
 </div>
 @endsection
 
+@push('styles')
+<style>
+  /* (gaya sama seperti sebelumnya, atau bisa gunakan yang sudah ada) */
+</style>
+@endpush
+
 @push('scripts')
 <script>
   const form = document.getElementById('settingsForm');

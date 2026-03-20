@@ -25,7 +25,7 @@ class WeatherController extends Controller
     return view('weather::index', compact('telegramUser'));
   }
 
-  public function settings() {
+  public function settings(Request $request) {
     $tgUser = $request->get('telegram_user'); // Dari middleware
     $telegramUser = TelegramUser::find($tgUser["id"]);
     $settings = $this->weatherService->getUserSettings($telegramUser->id);
