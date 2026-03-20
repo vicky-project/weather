@@ -61,7 +61,6 @@ class WeatherService
     if ($cached !== null) {
       return $cached;
     }
-    Log::debug("Location", ["Location" => $location]);
 
     try {
       $weatherData = $this->fetchFromApi($location);
@@ -138,7 +137,7 @@ class WeatherService
   {
     // Coba langsung dengan nama kota
     try {
-      $rawData = $this->weatherClient->getCurrentByCity($city);
+      $rawData = $this->weatherClient->getCurrentByCity("Tabalong");
       if (is_object($rawData) && property_exists($rawData, 'cod') && $rawData->cod == 200) {
         return $this->formatWeatherData($rawData);
       }
