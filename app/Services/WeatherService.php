@@ -18,7 +18,7 @@ class WeatherService
 
   public function __construct() {
     $this->weatherClient = new Weather();
-    $this->apiKey = config('services.openweather.api_key');
+    $this->apiKey = config('weather.openweather.api_key');
   }
 
   /**
