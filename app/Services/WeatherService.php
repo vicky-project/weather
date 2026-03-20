@@ -2,7 +2,6 @@
 
 namespace Modules\Weather\Services;
 
-use RakibDevs\Weather\Weather;
 use Modules\Telegram\Models\TelegramUser;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -11,13 +10,12 @@ use Throwable;
 
 class WeatherService
 {
-  protected Weather $weatherClient;
   protected int $cacheDuration = 1800; // 30 menit
   protected string $geocodingUrl = 'http://api.openweathermap.org/geo/1.0/direct';
+  protected string $weatherUrl = 'https://api.openweathermap.org/data/2.5/weather';
   protected string $apiKey;
 
   public function __construct() {
-    $this->weatherClient = new Weather();
     $this->apiKey = config('weather.openweather.api_key');
   }
 
@@ -56,7 +54,6 @@ class WeatherService
   protected function fetchWeatherWithCache(array $location): ?array
   {
     $cacheKey = $this->generateCacheKey($location);
-
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
       return $cached;
@@ -80,7 +77,7 @@ class WeatherService
   }
 
   /**
-  * Panggil API OpenWeatherMap dengan fallback geocoding.
+  * Panggil API dengan fallback geocoding.
   */
   protected function fetchFromApi(array $location): ?array
   {
@@ -96,29 +93,34 @@ class WeatherService
   }
 
   /**
-  * Dapatkan cuaca berdasarkan koordinat dengan validasi respons.
+  * Dapatkan cuaca berdasarkan koordinat.
   */
   protected function getWeatherByCoordinates(float $lat, float $lon): ?array
   {
     try {
-      $rawData = $this->weatherClient->getCurrentByCord($lat, $lon);
+      $response = Http::get($this->weatherUrl, [
+        'lat' => $lat,
+        'lon' => $lon,
+        'units' => 'metric',
+        'appid' => $this->apiKey,
+      ]);
 
-      // Validasi respons
-      if (!is_object($rawData)) {
-        throw new \Exception('Respons API tidak valid (bukan objek)');
+      if (!$response->successful()) {
+        Log::warning('Weather API error', [
+          'status' => $response->status(),
+          'body' => $response->body()
+        ]);
+        return null;
       }
 
-      // Cek apakah ada properti 'cod' dan bernilai 200 (sukses)
-      if (property_exists($rawData, 'cod') && $rawData->cod != 200) {
-        $message = property_exists($rawData, 'message') ? $rawData->message : 'Unknown error';
-        throw new \Exception("API error: $message");
+      $data = $response->json();
+      if (empty($data) || ($data['cod'] ?? 200) != 200) {
+        Log::warning('Weather API invalid response', ['data' => $data]);
+        return null;
       }
 
-      // Pastikan properti yang diperlukan ada
-      if (!isset($rawData->weather) || !isset($rawData->main)) {
-        throw new \Exception('Data cuaca tidak lengkap');
-      }
-
+      // Konversi ke object agar sesuai dengan formatWeatherData
+      $rawData = json_decode(json_encode($data));
       return $this->formatWeatherData($rawData);
     } catch (Throwable $e) {
       Log::warning('Gagal get weather by coordinates', [
@@ -137,13 +139,18 @@ class WeatherService
   {
     // Coba langsung dengan nama kota
     try {
-      $rawData = $this->weatherClient->getCurrentByCity("Tabalong");
-      if (is_object($rawData) && property_exists($rawData, 'cod') && $rawData->cod == 200) {
-        return $this->formatWeatherData($rawData);
-      }
-      // Jika response sukses tapi cod tidak 200, lemparkan exception
-      if (is_object($rawData) && property_exists($rawData, 'cod')) {
-        throw new \Exception("API error: " . ($rawData->message ?? 'Unknown'));
+      $response = Http::get($this->weatherUrl, [
+        'q' => $city,
+        'units' => 'metric',
+        'appid' => $this->apiKey,
+      ]);
+
+      if ($response->successful()) {
+        $data = $response->json();
+        if (($data['cod'] ?? 200) == 200) {
+          $rawData = json_decode(json_encode($data));
+          return $this->formatWeatherData($rawData);
+        }
       }
     } catch (Throwable $e) {
       Log::info('Langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
@@ -156,7 +163,6 @@ class WeatherService
       return null;
     }
 
-    // Ambil cuaca berdasarkan koordinat
     return $this->getWeatherByCoordinates($coordinates['lat'], $coordinates['lon']);
   }
 
