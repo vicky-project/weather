@@ -66,7 +66,7 @@ class SendWeatherNotifications extends Command
       }
 
       $message = $this->formatWeatherMessage($weatherData);
-      $sent = $this->telegramApi->sendMessage($user->telegram_id, TelegramMarkdownHelper::escapeMarkdownV2($message), 'MarkdownV2');
+      $sent = $this->telegramApi->sendMessage($user->telegram_id, TelegramMarkdownHelper::safeText($message, "MarkdownV2"), 'MarkdownV2');
 
       if ($sent) {
         // Simpan catatan pengiriman
