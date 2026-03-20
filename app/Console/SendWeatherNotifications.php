@@ -10,7 +10,7 @@ use Carbon\Carbon;
 
 class SendWeatherNotifications extends Command
 {
-  protected $signature = 'app:weather-send';
+  protected $signature = 'app:weather-sent';
   protected $description = 'Kirim notifikasi cuaca harian ke pengguna yang mengaktifkan';
 
   protected $weatherService;
@@ -65,7 +65,7 @@ class SendWeatherNotifications extends Command
       }
 
       $message = $this->formatWeatherMessage($weatherData);
-      $sent = $this->telegramApi->sendMessage($user->telegram_id, $message, null, 'MarkdownV2');
+      $sent = $this->telegramApi->sendMessage($user->telegram_id, $message, 'MarkdownV2');
 
       if ($sent) {
         // Simpan catatan pengiriman
