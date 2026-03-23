@@ -32,7 +32,7 @@
               <input type="text" class="form-control" id="city" name="city"
               value="{{ old('city', $settings->city ?? '') }}"
               placeholder="Contoh: Jakarta">
-              <div class="form-text">
+              <div class="form-text text-muted">
                 Atau isi koordinat di bawah untuk lokasi yang lebih spesifik.
               </div>
             </div>
