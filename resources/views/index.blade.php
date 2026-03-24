@@ -484,10 +484,29 @@
     });
   }
 
-  window.refreshWeather = function() {
+  window.refreshWeather = async function() {
     if (window.weatherData) {
       const loc = window.weatherData.location;
       usingDefault = false; // setelah refresh, kita anggap bukan default lagi
+      try {
+        const initData = window.Telegram?.WebApp?.initData || '';
+
+        const res = await fetch('{{ secure_url(config("app.url")) }}/api/weather/refresh', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Telegram-Init-Data': initData
+          },
+          body: JSON.stringify({ lat: loc.latitude, lon: loc.longitude})
+        });
+        const result = await res.json();
+        if (result.message) {
+          showToast(result.message, result.success ? 'success': 'danger') || alert(result.message);
+        }
+      } catch(e) {
+        showToast(e.message, 'danger') || alert(e.message);
+      }
       fetchWeather(loc.latitude, loc.longitude);
     } else {
       initWeather();

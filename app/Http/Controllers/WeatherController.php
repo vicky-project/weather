@@ -113,6 +113,24 @@ class WeatherController extends Controller
     ]);
   }
 
+  public function refresh(Request $request) {
+    $request->validate([
+      'latitude' => 'nullable|numeric|between:-90,90',
+      'longitude' => 'nullable|numeric|between:-180,180',
+    ]);
+
+    try {
+      $result = $this->weatherService->refresh([
+        "latitude" => $request->latitude,
+        "longitude" => $request->longitude
+      ]);
+
+      return response()->json(["success" => $result ?? false, "message" => "Data refreshed"]);
+    } catch (\Exception $e) {
+      return response()->json(["success" => false, "message" => $e->getMessage()]);
+    }
+  }
+
   /**
   * Cek apakah user memiliki lokasi default.
   */

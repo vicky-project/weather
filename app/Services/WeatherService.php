@@ -384,4 +384,15 @@ class WeatherService
       'notifications_enabled' => $data['weather_notifications'] ?? false
     ];
   }
+
+  public function refresh(array $location) {
+    try {
+      $cacheKey = $this->generateCacheKey($location);
+      Cache::forget($cacheKey);
+
+      return true;
+    } catch(\Exception $e) {
+      throw $e;
+    }
+  }
 }
