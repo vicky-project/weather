@@ -500,9 +500,9 @@
           },
           body: JSON.stringify({ lat: loc.latitude, lon: loc.longitude})
         });
-        const result = await res.json();
-        if (result.message) {
-          showToast(result.message, result.success ? 'success': 'danger') || alert(result.message);
+        const data = await res.json();
+        if (data.message) {
+          showToast(data.message, result.success ? 'success': 'danger');
         }
       } catch(e) {
         showToast(e.message, 'danger') || alert(e.message);
