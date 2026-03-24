@@ -326,8 +326,7 @@ class WeatherService
         'icon' => $weather->icon ?? null,
       ],
       'sun' => [
-        'rise' => isset($sys->sunrise) ? date('H:i',
-          $sys->sunrise) : null,
+        'rise' => isset($sys->sunrise) ? now()->timestamp($sys->sunrise)->format('H:i') : null,
         'set' => isset($sys->sunset) ? date('H:i',
           $sys->sunset) : null,
       ],
