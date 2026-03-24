@@ -326,9 +326,10 @@ class WeatherService
         'icon' => $weather->icon ?? null,
       ],
       'sun' => [
-        'rise' => isset($sys->sunrise) ? now()->timestamp($sys->sunrise)->format('H:i') : null,
+        'rise' => isset($sys->sunrise) ? date('H:i',
+          $sys->sunrise + $rawData->timezone) : null,
         'set' => isset($sys->sunset) ? date('H:i',
-          $sys->sunset) : null,
+          $sys->sunset + $rawData->timezone) : null,
       ],
       'updated_at' => now()->toIso8601String(),
     ];
