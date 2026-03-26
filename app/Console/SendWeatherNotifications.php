@@ -29,6 +29,7 @@ class SendWeatherNotifications extends Command
 
   public function handle() {
     $this->info('Memulai pengiriman notifikasi cuaca...');
+    \Log::info("Command SendWeatherNotifications started...");
 
     // Ambil semua user yang mengaktifkan notifikasi cuaca
     $users = TelegramUser::all()->filter(function ($user) {
@@ -38,11 +39,14 @@ class SendWeatherNotifications extends Command
 
     if ($users->isEmpty()) {
       $this->info('Tidak ada pengguna dengan notifikasi cuaca aktif.');
+      \Log::info("No users with weather notifications enabled");
       return 0;
     }
 
     $today = Carbon::today()->toDateString();
     $sentCount = 0;
+    $skipCount = 0;
+    $failCount = 0;
 
     foreach ($users as $user) {
       try {
@@ -50,7 +54,11 @@ class SendWeatherNotifications extends Command
         $defaultLocation = $data['default_location'] ?? [];
 
         if (empty($defaultLocation)) {
-          $this->warn("User tidak menyimpan lokasi default.");
+          $this->info("User tidak menyimpan lokasi default.");
+          \Log::warning("User has no default location", [
+            "telegram_id" => $user->telegram_id
+          ]);
+          $failCount++;
           continue;
         }
 
@@ -58,7 +66,11 @@ class SendWeatherNotifications extends Command
         $lastWeatherNotification = $data['last_weather_notification'] ?? null;
         if ($lastWeatherNotification === $today) {
           $this->info("Notification was sent.");
+          \Log::debug("Weather notification already sent today, skipping", [
+            "telegram_id" => $user->telegram_id
+          ]);
           // Sudah dikirim hari ini, lewati
+          $skipCount++;
           continue;
         }
 
@@ -67,6 +79,7 @@ class SendWeatherNotifications extends Command
         if (!$weatherData) {
           $this->warn("Gagal ambil cuaca untuk user {$user->telegram_id}");
           \Log::warning("Gagal ambil cuaca untuk user {$user->telegram_id}");
+          $failCount++;
           continue;
         }
 
@@ -78,19 +91,28 @@ class SendWeatherNotifications extends Command
         $user->save();
 
         $this->info("Notifikasi cuaca terkirim ke {$user->telegram_id}");
+        \Log::info("Weather notification sent", [
+          "telegram_id" => $user->telegram_id
+        ]);
         $sentCount++;
       } catch(\Exception $e) {
         \Log::error("Failed to sent weather notification.", [
-          'user' => $user->telegram_id,
+          'telegram_id' => $user->telegram_id,
           'message' => $e->getMessage(),
           'trace' => $e->getTraceAsString()
         ]);
 
         $this->error("Gagal kirim pesan notifikasi cuaca.");
+        $failCount++;
       }
     }
 
-    $this->info("Selesai. {$sentCount} notifikasi cuaca terkirim.");
+    $this->info("Selesai. {$sentCount} notifikasi terkirim, {$skipCount} dilewati, {$failCount} gagal");
+    \Log::info("Command SendWeatherNotifications finished", [
+      "sent" => $sentCount,
+      "skip" => $skipCount,
+      "fail" => $failCount
+    ]);
     return 0;
   }
 }
