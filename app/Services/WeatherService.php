@@ -385,7 +385,8 @@ class WeatherService
     ];
   }
 
-  public function refresh(array $location) {
+  public function refresh(array $location): true
+  {
     try {
       $cacheKey = $this->generateCacheKey($location);
       Cache::forget($cacheKey);
