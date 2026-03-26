@@ -57,6 +57,7 @@ class WeatherService
     $cacheKey = $this->generateCacheKey($location);
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
+      Log::debug("Weather cache hit", ["key" => $cacheKey]);
       return $cached;
     }
 
@@ -154,7 +155,7 @@ class WeatherService
         }
       }
     } catch (Throwable $e) {
-      Log::info('Langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
+      Log::debug('Langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
     }
 
     // Fallback: geocoding
@@ -365,6 +366,8 @@ class WeatherService
     $currentData['weather_notifications'] = $notificationsEnabled;
     $telegramUser->data = $currentData;
     $telegramUser->save();
+
+    Log::info("User weather setting updated.", ["telegram_id" => $telegramUser->telegram_id, "notifications" => $notificationsEnabled]);
   }
 
   /**
@@ -385,15 +388,16 @@ class WeatherService
     ];
   }
 
-  public function refresh(array $location): true
+  public function refresh(array $location): bool
   {
     try {
       $cacheKey = $this->generateCacheKey($location);
       Cache::forget($cacheKey);
-
+      Log::debug("Weather cache cleared", ["key" => $cacheKey]);
       return true;
     } catch(\Exception $e) {
-      throw $e;
+      Log::error("Failed to clear weather cache");
+      return false;
     }
   }
 }
