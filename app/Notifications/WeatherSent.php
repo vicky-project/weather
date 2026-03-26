@@ -56,4 +56,4 @@ class WeatherSent extends Notification implements ShouldQueue
     ];
     return $map[$condition] ?? '🌤';
   }
-}.
+}
