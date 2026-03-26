@@ -74,6 +74,7 @@ class WeatherServiceProvider extends ServiceProvider
       Schedule::command('app:weather-sent')
       ->twiceDaily(6, 18)
       ->withoutOverlapping()
+      ->pingBefore("https://hc-ping.com/86031fbf-7c4e-40e1-a302-521a1fa6470e")
       ->pingOnSuccess("https://hc-ping.com/86031fbf-7c4e-40e1-a302-521a1fa6470e")
       ->pingOnFailure("https://hc-ping.com/86031fbf-7c4e-40e1-a302-521a1fa6470e/fail");
     });
