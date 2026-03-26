@@ -13,7 +13,7 @@ class WeatherSent extends Notification implements ShouldQueue
   public function __construct(protected array $weatherData) {}
 
   public function via($notifiable) {
-    return $notifiable->notifyAuthenticationLogVia();
+    return ["telegram"];
   }
 
   public function toTelegram($notifiable) {
