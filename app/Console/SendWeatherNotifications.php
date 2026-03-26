@@ -3,8 +3,9 @@
 namespace Modules\Weather\Console;
 
 use Illuminate\Console\Command;
-use Modules\Telegram\Models\TelegramUser;
+use Modules\Weather\Notifications\WeatherSent;
 use Modules\Weather\Services\WeatherService;
+use Modules\Telegram\Models\TelegramUser;
 use Modules\Telegram\Services\Support\TelegramApi;
 use Modules\Telegram\Services\Support\TelegramMarkdownHelper;
 use Carbon\Carbon;
@@ -44,31 +45,33 @@ class SendWeatherNotifications extends Command
     $sentCount = 0;
 
     foreach ($users as $user) {
-      $data = $user->data ?? [];
-      $defaultLocation = $data['default_location'] ?? [];
+      try {
+        $data = $user->data ?? [];
+        $defaultLocation = $data['default_location'] ?? [];
 
-      if (empty($defaultLocation)) {
-        continue;
-      }
+        if (empty($defaultLocation)) {
+          $this->warn("User tidak menyimpan lokasi default.");
+          continue;
+        }
 
-      // Cek apakah sudah dikirim hari ini (mencegah pengiriman duplikat)
-      $lastWeatherNotification = $data['last_weather_notification'] ?? null;
-      if ($lastWeatherNotification === $today) {
-        // Sudah dikirim hari ini, lewati
-        continue;
-      }
+        // Cek apakah sudah dikirim hari ini (mencegah pengiriman duplikat)
+        $lastWeatherNotification = $data['last_weather_notification'] ?? null;
+        if ($lastWeatherNotification !== $today) {
+          $this->info("Notification was sent.");
+          // Sudah dikirim hari ini, lewati
+          continue;
+        }
 
-      // Ambil cuaca untuk user
-      $weatherData = $this->weatherService->getWeatherForUser($user);
-      if (!$weatherData) {
-        $this->warn("Gagal ambil cuaca untuk user {$user->telegram_id}");
-        continue;
-      }
+        // Ambil cuaca untuk user
+        $weatherData = $this->weatherService->getWeatherForUser($user);
+        if (!$weatherData) {
+          $this->warn("Gagal ambil cuaca untuk user {$user->telegram_id}");
+          \Log::warning("Gagal ambil cuaca untuk user {$user->telegram_id}");
+          continue;
+        }
 
-      $message = $this->formatWeatherMessage($weatherData);
-      $sent = $this->telegramApi->sendMessage($user->telegram_id, TelegramMarkdownHelper::safeText($message, "MarkdownV2"), 'MarkdownV2');
+        $user->notify(new WeatherSent($weatherData));
 
-      if ($sent) {
         // Simpan catatan pengiriman
         $data['last_weather_notification'] = $today;
         $user->data = $data;
@@ -76,42 +79,18 @@ class SendWeatherNotifications extends Command
 
         $this->info("Notifikasi cuaca terkirim ke {$user->telegram_id}");
         $sentCount++;
+      } catch(\Exception $e) {
+        \Log::error("Failed to sent weather notification.", [
+          'user' => $user->telegram_id,
+          'message' => $e->getMessage(),
+          'trace' => $e->getTraceAsString()
+        ]);
+
+        $this->error("Gagal kirim pesan notifikasi cuaca.");
       }
     }
 
     $this->info("Selesai. {$sentCount} notifikasi cuaca terkirim.");
     return 0;
-  }
-
-  protected function formatWeatherMessage(array $weather): string
-  {
-    $w = $weather;
-    $emoji = $this->getWeatherEmoji($w['weather']['main']);
-
-    return "🌤 *Prakiraan Cuaca Hari Ini*\n" .
-    "📍 {$w['location']['name']}, {$w['location']['country']}\n\n" .
-    "{$emoji} {$w['weather']['description']}\n" .
-    "🌡 Suhu: {$w['current']['temperature']}°C (terasa {$w['current']['feels_like']}°C)\n" .
-    "💧 Kelembaban: {$w['current']['humidity']}%\n" .
-    "💨 Angin: {$w['current']['wind_speed']} m/s\n" .
-    "☁️ Awan: {$w['current']['clouds']}%\n\n" .
-    "🌅 Terbit: {$w['sun']['rise']}\n" .
-    "🌇 Terbenam: {$w['sun']['set']}\n\n" .
-    "Semoga hari Anda menyenangkan!";
-  }
-
-  protected function getWeatherEmoji($condition) {
-    $map = [
-      'Clear' => '☀️',
-      'Clouds' => '☁️',
-      'Rain' => '🌧',
-      'Drizzle' => '🌦',
-      'Thunderstorm' => '⛈',
-      'Snow' => '🌨',
-      'Mist' => '🌫',
-      'Fog' => '🌫',
-      'Haze' => '🌫',
-    ];
-    return $map[$condition] ?? '🌤';
   }
 }
