@@ -56,7 +56,7 @@ class SendWeatherNotifications extends Command
 
         // Cek apakah sudah dikirim hari ini (mencegah pengiriman duplikat)
         $lastWeatherNotification = $data['last_weather_notification'] ?? null;
-        if ($lastWeatherNotification !== $today) {
+        if ($lastWeatherNotification === $today) {
           $this->info("Notification was sent.");
           // Sudah dikirim hari ini, lewati
           continue;
