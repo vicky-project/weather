@@ -36,7 +36,7 @@ class WeatherSent extends Notification implements ShouldQueue
   public function via($notifiable) {
     $stack = config("weather.notifications.stack");
 
-    return !is_string($stack) ? ["telegram"] : explode(trim($stack), ",");
+    return !is_string($stack) ? ["telegram"] : explode(",", trim($stack));
   }
 
   public function toTelegram($notifiable) {
