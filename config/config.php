@@ -11,4 +11,12 @@ return [
     "api_key" => env("OPENWEATHER_API_KEY"),
     "base_url" => env("OPENWEATHER_BASE_URL", "https://api.openweathermap.org/data/2.5")
   ],
+
+  "notifications" => [
+    /**
+    * Comma separated for multiple notifications.
+    * Currently support via telegram
+    */
+    "stack" => env("WEATHER_NOTIFICATIONS", "telegram")
+  ]
 ];
