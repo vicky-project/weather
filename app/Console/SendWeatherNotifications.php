@@ -39,6 +39,7 @@ class SendWeatherNotifications extends Command
     }
 
     $today = Carbon::today()->toDateString();
+    $slot = date("H") < 12 ? "morning" : "evening";
     $sentCount = 0;
     $skipCount = 0;
     $failCount = 0;
