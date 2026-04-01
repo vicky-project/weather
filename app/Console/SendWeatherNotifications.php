@@ -6,8 +6,6 @@ use Illuminate\Console\Command;
 use Modules\Weather\Notifications\WeatherSent;
 use Modules\Weather\Services\WeatherService;
 use Modules\Telegram\Models\TelegramUser;
-use Modules\Telegram\Services\Support\TelegramApi;
-use Modules\Telegram\Services\Support\TelegramMarkdownHelper;
 use Carbon\Carbon;
 
 class SendWeatherNotifications extends Command
@@ -16,15 +14,12 @@ class SendWeatherNotifications extends Command
   protected $description = 'Kirim notifikasi cuaca harian ke pengguna yang mengaktifkan';
 
   protected $weatherService;
-  protected $telegramApi;
 
   public function __construct(
-    WeatherService $weatherService,
-    TelegramApi $telegramApi
+    WeatherService $weatherService
   ) {
     parent::__construct();
     $this->weatherService = $weatherService;
-    $this->telegramApi = $telegramApi;
   }
 
   public function handle() {
@@ -62,14 +57,15 @@ class SendWeatherNotifications extends Command
           continue;
         }
 
-        // Cek apakah sudah dikirim hari ini (mencegah pengiriman duplikat)
-        $lastWeatherNotification = $data['last_weather_notification'] ?? null;
-        if ($lastWeatherNotification === $today) {
-          $this->info("Notification was sent.");
-          \Log::debug("Weather notification already sent today, skipping", [
+        // Ambil history pengiriman notifikasi cuaca
+        $weatherNotifications = $data['weather_notifications'] ?? [];
+
+        // Cek apakah untuk slot ini sudah dikirim hari ini
+        if (isset($weatherNotifications[$today][$slot]) && $weatherNotifications[$today][$slot] === true) {
+          $this->info("Notifikasi cuaca sudah dikirim untuk slot {$slot} hari ini, lewati.");
+          \Log::debug("Weather notification already sent for {$slot} slot", [
             "telegram_id" => $user->telegram_id
           ]);
-          // Sudah dikirim hari ini, lewati
           $skipCount++;
           continue;
         }
@@ -78,21 +74,25 @@ class SendWeatherNotifications extends Command
         $weatherData = $this->weatherService->getWeatherForUser($user);
         if (!$weatherData) {
           $this->warn("Gagal ambil cuaca untuk user {$user->telegram_id}");
-          \Log::warning("Gagal ambil cuaca untuk user {$user->telegram_id}");
+          \Log::warning("Failed to get weather for user", [
+            "telegram_id" => $user->telegram_id
+          ]);
           $failCount++;
           continue;
         }
 
         $user->notify(new WeatherSent($weatherData));
 
-        // Simpan catatan pengiriman
-        $data['last_weather_notification'] = $today;
+        // Tandai slot ini sebagai sudah dikirim
+        $weatherNotifications[$today][$slot] = true;
+        $data['weather_notifications'] = $weatherNotifications;
         $user->data = $data;
         $user->save();
 
-        $this->info("Notifikasi cuaca terkirim ke {$user->telegram_id}");
+        $this->info("Notifikasi cuaca terkirim ke {$user->telegram_id} (slot {$slot})");
         \Log::info("Weather notification sent", [
-          "telegram_id" => $user->telegram_id
+          "telegram_id" => $user->telegram_id,
+          "slot" => $slot
         ]);
         $sentCount++;
       } catch(\Exception $e) {
