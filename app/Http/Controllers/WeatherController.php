@@ -53,7 +53,6 @@ class WeatherController extends Controller
 
       $data = $this->weatherService->getWeatherByInput($city, $lat, $lon);
     }
-    \Log::debug("Current", ['data' => $data]);
 
     if (!$data) {
       return response()->json([
@@ -92,7 +91,6 @@ class WeatherController extends Controller
     }
 
     $data = $this->weatherService->getHourlyForecast($location, $timezoneOffset);
-    \Log::debug("Forecast", ["data" => $data]);
     if (!$data) {
       return response()->json(['success' => false, 'message' => 'Data forecast tidak tersedia'], 404);
     }
@@ -122,8 +120,8 @@ class WeatherController extends Controller
       return response()->json(['success' => false, 'message' => 'Koordinat diperlukan'], 400);
     }
 
-    \Log::debug("uv index", ['lat' => $lat, 'lon' => $lon]);
     $data = $this->weatherService->getUVIndex((float)$lat, (float)$lon);
+    \Log::debug("uv index", ['data' => $data]);
     if (!$data) {
       return response()->json(['success' => false, 'message' => 'Data indeks UV tidak tersedia'], 404);
     }
