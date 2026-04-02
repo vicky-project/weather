@@ -387,7 +387,7 @@
       </div>
       <div class="row g-2 mb-3">
       <div class="col-4"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${w.current.humidity}%</div><div class="label">Kelembaban</div></div></div>
-      <div class="col-4"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${w.current.wind_speed} m/s</div><div class="label">Angin</div></div></div>
+      <div class="col-4"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${(w.current.wind_speed * 3.6).toFixed(2)} Km/h</div><div class="label">Angin</div></div></div>
       <div class="col-4"><div class="detail-item"><i class="bi bi-cloud"></i><div class="value">${w.current.clouds}%</div><div class="label">Awan</div></div></div>
       </div>
       <div class="row g-2 mb-3">
@@ -395,7 +395,7 @@
       <div class="col-6"><div class="detail-item"><i class="bi bi-sunset"></i><div class="value">${w.sun.set}</div><div class="label">Terbenam</div></div></div>
       </div>
       <div class="row g-2 mb-3">
-      <div class="col-6"><div class="detail-item"><i class="bi bi-speedometer2"></i><div class="value">${w.current.pressure} hPa</div><div class="label">Tekanan</div></div></div>
+      <div class="col-6"><div class="detail-item"><i class="bi bi-speedometer2"></i><div class="value">${w.current.pressure} mbar</div><div class="label">Tekanan</div></div></div>
       <div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">${w.current.visibility ? (w.current.visibility/1000).toFixed(1): '-'} km</div><div class="label">Jarak Pandang</div></div></div>
       </div>`;
 
@@ -467,14 +467,14 @@
     <div class="col-6">
     <div class="detail-item">
     <i class="bi bi-speedometer2"></i>
-    <div class="value">${details.pressure ?? '-'} hPa</div>
+    <div class="value">${details.pressure ?? '-'} mbar</div>
     <div class="label">Tekanan</div>
     </div>
     </div>
     <div class="col-6">
     <div class="detail-item">
     <i class="bi bi-wind"></i>
-    <div class="value">${details.wind_speed ?? '-'} m/s</div>
+    <div class="value">${details.wind_speed ? (details.wind_speed * 3.6).toFixed(2): '-'} Km/h</div>
     <div class="label">Angin</div>
     </div>
     </div>
