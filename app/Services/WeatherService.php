@@ -614,6 +614,7 @@ class WeatherService
       }
 
       $data = $response->json();
+      \Log::debug("result uv index", ['data' => $data]);
       if (empty($data) || !isset($data['current']['uvi'])) {
         return null;
       }
