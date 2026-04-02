@@ -455,7 +455,7 @@ class WeatherService
 
     // Ambil 8 data pertama (24 jam ke depan, interval 3 jam)
     $limit = 8;
-    $now = Carbon::now();
+    $now = Carbon::now(config('app.timezone'));
     $filtered = [];
     foreach ($list as $item) {
       $dt = Carbon::createFromTimestamp($item['dt']);
@@ -464,7 +464,6 @@ class WeatherService
         if (count($filtered) >= $limit) break;
       }
     }
-    \Log::debug("filtered forecast", ["data" => $filtered]);
 
     foreach ($filtered as $item) {
       $dt = Carbon::createFromTimestamp($item['dt']);
@@ -483,7 +482,7 @@ class WeatherService
         'pressure' => $item['main']['pressure'] ?? 0,
         'wind_speed' => $item['wind']['speed'] ?? 0,
         'clouds' => $item['clouds']['all'] ?? 0,
-        'visibility' => $item['wind']['visibility'] ?? 0
+        'visibility' => $item['visibility'] ?? 0
       ];
       $chartLabels[] = $timeLabel;
       $chartTemps[] = round($temp);
