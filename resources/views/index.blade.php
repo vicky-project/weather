@@ -393,6 +393,73 @@
     }
   }
 
+  // ==================== RINGKASAN LISAN ====================
+  function generateSummary() {
+    const w = window.weatherData;
+    if (!w) return '';
+
+    let summary = '';
+    const temp = w.current.temperature;
+    const feelsLike = w.current.feels_like;
+    const desc = w.weather.description.toLowerCase();
+    const humidity = w.current.humidity;
+    const windMs = w.current.wind_speed;
+    const windKmh = (windMs * 3.6).toFixed(1);
+
+    // Kondisi cuaca
+    if (desc.includes('hujan') || desc.includes('rain')) {
+      summary += `Saat ini ${desc}. `;
+    } else if (desc.includes('cerah') || desc.includes('clear')) {
+      summary += `Cuaca cerah. `;
+    } else if (desc.includes('awan') || desc.includes('clouds')) {
+      summary += `Cuaca berawan. `;
+    } else {
+      summary += `Cuaca ${desc}. `;
+    }
+
+    // Suhu dan kelembaban
+    summary += `Suhu ${temp}°C, terasa ${feelsLike}°C. `;
+    summary += `Kelembaban ${humidity}%, angin ${windKmh} km/j. `;
+
+    // Prakiraan hujan terdekat (dari forecast per jam)
+    if (window.forecastData && window.forecastData.hourly && window.forecastData.hourly.length > 0) {
+      // Cek 3 jam ke depan (2 item pertama karena interval 3 jam)
+      const nextHours = window.forecastData.hourly.slice(0, 2);
+      let willRain = false;
+      for (let i = 0; i < nextHours.length; i++) {
+        const item = nextHours[i];
+        if (item.description && (item.description.includes('hujan') || item.description.includes('rain'))) {
+          willRain = true;
+          break;
+        }
+      }
+      if (willRain) {
+        summary += `Hujan diperkirakan dalam beberapa jam ke depan. `;
+      }
+    }
+
+    // Indeks UV
+    if (window.uvData) {
+      const uv = window.uvData.uvi;
+      if (uv >= 8) {
+        summary += `Indeks UV sangat tinggi (${uv}). Hindari paparan sinar matahari langsung. `;
+      } else if (uv >= 6) {
+        summary += `Indeks UV tinggi (${uv}). Gunakan pelindung. `;
+      } else if (uv >= 3) {
+        summary += `Indeks UV sedang (${uv}). Gunakan tabir surya jika beraktivitas lama. `;
+      }
+    }
+
+    // Saran suhu ekstrem
+    if (temp > 32) {
+      summary += 'Cuaca panas, perbanyak minum air putih.';
+    } else if (temp < 25) {
+      summary += 'Cuaca sejuk, nyaman untuk beraktivitas.';
+    }
+
+    return summary;
+  }
+
   // ==================== UI RENDERING ====================
   function buildUI() {
     if (currentState === 'loading') {
@@ -425,6 +492,7 @@
       <div class="temperature">${w.current.temperature}°C</div>
       <div class="text-muted text-uppercase">${w.weather.description}</div>
       <div class="mt-1">Terasa seperti ${w.current.feels_like}°C</div>
+      ${generateSummary() ? `<div class="mt-2 small text-muted">${generateSummary()}</div>`: ''}
       </div>
       <div class="row g-2 mb-3">
       <div class="col-4"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${w.current.humidity}%</div><div class="label">Kelembaban</div></div></div>
