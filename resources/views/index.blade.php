@@ -387,7 +387,7 @@
       </div>
       <div class="row g-2 mb-3">
       <div class="col-4"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${w.current.humidity}%</div><div class="label">Kelembaban</div></div></div>
-      <div class="col-4"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${(w.current.wind_speed * 3.6).toFixed(2)} Km/h</div><div class="label">Angin</div></div></div>
+      <div class="col-4"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${(w.current.wind_speed * 3.6).toFixed(1)} Km/h</div><div class="label">Angin</div></div></div>
       <div class="col-4"><div class="detail-item"><i class="bi bi-cloud"></i><div class="value">${w.current.clouds}%</div><div class="label">Awan</div></div></div>
       </div>
       <div class="row g-2 mb-3">
@@ -474,7 +474,7 @@
     <div class="col-6">
     <div class="detail-item">
     <i class="bi bi-wind"></i>
-    <div class="value">${details.wind_speed ? (details.wind_speed * 3.6).toFixed(2): '-'} Km/h</div>
+    <div class="value">${details.wind_speed ? (details.wind_speed * 3.6).toFixed(1): '-'} Km/h</div>
     <div class="label">Angin</div>
     </div>
     </div>
