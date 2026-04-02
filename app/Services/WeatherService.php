@@ -485,6 +485,7 @@ class WeatherService
         'temp' => round($temp),
         'feels_like' => round($feelsLike),
         'humidity' => $item['main']['humidity'] ?? 0,
+        'pop' => ($item['pop'] ?? 0) * 100,
         'icon' => $weather['icon'] ?? null,
         'description' => $weather['description'] ?? null,
         'pressure' => $item['main']['pressure'] ?? 0,

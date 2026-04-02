@@ -404,11 +404,14 @@
         html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam Ke Depan</h6>
         <div class="d-flex flex-nowrap overflow-auto gap-2 pb-2" style="scrollbar-width: thin;">`;
         window.forecastData.hourly.forEach((item, idx) => {
+        const pop = item.pop || 0;
+        const popIcon = pop >= 70 ? 'bi-droplet-fill' : (pop >= 30 ? 'bi-droplet-half' : 'bi-droplet');
         html += `<div class="forecast-hour-card" data-forecast-index="${idx}" onclick="showForecastDetail(${idx})">
         <div class="forecast-hour-time">${item.time}</div>
         <img src="https://openweathermap.org/img/wn/${item.icon}.png" width="40" height="40" alt="${item.description}">
         <div class="forecast-hour-temp">${item.temp}°C</div>
         <div class="small text-muted">${item.description?.substring(0,3)}</div>
+        ${pop > 0 ? `<div class="small text-primary"><i class="bi ${popIcon}"></i>${pop}%</div>` : ''}
         </div>`;
         });
         html += `</div>`;
@@ -442,6 +445,7 @@
     if (!modalBody) return;
 
     const details = item.details || item; // fallback
+    const pop = details.pop || 0;
 
     const html = `
     <div class="text-center mb-3">
@@ -462,6 +466,13 @@
     <i class="bi bi-droplet"></i>
     <div class="value">${details.humidity ?? '-'}%</div>
     <div class="label">Kelembaban</div>
+    </div>
+    </div>
+    <div class="col-6">
+    <div class="detail-item">
+    <i class="bi bi-droplet-half"></i>
+    <div class="value">${pop}%</div>
+    <div class="label">Peluang Hujan</div>
     </div>
     </div>
     <div class="col-6">
