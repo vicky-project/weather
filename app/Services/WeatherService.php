@@ -13,17 +13,9 @@ class WeatherService
 {
   protected int $cacheDuration = 900; // 30 menit
   protected string $geocodingUrl = 'http://api.openweathermap.org/geo/1.0/direct';
-  protected string $weatherUrl;
-  protected string $forcastUrl;
-  protected string $aqiUrl;
-  protected string $uviUrl;
-  protected string $apiKey;
 
   public function __construct() {
     $this->apiKey = config('weather.openweather.api_key');
-    $this->weatherUrl = config("weather.openweather.base_url") . "/2.5/weather";
-    $this->forecastUrl = config("weather.openweather.base_url") . "/2.5/forecast";
-    $this->aqiUrl = config("weather.openweather.base_url") . "/2.5/air_pollution";
     $this->uviUrl = config("weather.openweather.base_url") . "/3.0/onecall";
   }
 
@@ -107,7 +99,7 @@ class WeatherService
   protected function getWeatherByCoordinates(float $lat, float $lon): ?array
   {
     try {
-      $response = Http::get($this->weatherUrl, [
+      $response = Http::get(config("weather.openweather.base_url") . "/weather", [
         'lat' => $lat,
         'lon' => $lon,
         'units' => 'metric',
@@ -148,7 +140,7 @@ class WeatherService
   {
     // Coba langsung dengan nama kota
     try {
-      $response = Http::get($this->weatherUrl, [
+      $response = Http::get(config("weather.openweather.base_url") . "/weather", [
         'q' => $city,
         'units' => 'metric',
         'appid' => $this->apiKey,
@@ -391,7 +383,7 @@ class WeatherService
   protected function getForecastByCoordinates(float $lat, float $lon, int $timezoneOffset = 0): ?array
   {
     try {
-      $response = Http::get($this->forecastUrl, [
+      $response = Http::get(config("weather.openweather.base_url") . "/forecast", [
         'lat' => $lat,
         'lon' => $lon,
         'units' => 'metric',
@@ -425,7 +417,7 @@ class WeatherService
   protected function getForecastByCityName(string $city, int $timezoneOffset = 0): ?array
   {
     try {
-      $response = Http::get($this->forecastUrl, [
+      $response = Http::get(config("weather.openweather.base_url") . "/forecast", [
         'q' => $city,
         'units' => 'metric',
         'appid' => $this->apiKey,
@@ -525,7 +517,7 @@ class WeatherService
     }
 
     try {
-      $response = Http::get($this->aqiUrl, [
+      $response = Http::get(config("weather.openweather.base_url") . "/air_pollution", [
         'lat' => $lat,
         'lon' => $lon,
         'appid' => $this->apiKey,
@@ -609,7 +601,7 @@ class WeatherService
     }
 
     try {
-      $response = Http::get($this->uviUrl, [
+      $response = Http::get("https://api.openweathermap.org/data/3.0/onecall", [
         'lat' => $lat,
         'lon' => $lon,
         'exclude' => 'minutely,hourly,daily,alerts',
