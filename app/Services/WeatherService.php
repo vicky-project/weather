@@ -448,6 +448,7 @@ class WeatherService
         'chart' => ['labels' => [],
           'temps' => []]];
     }
+    \Log::debug("forecast", ["data" => $list]);
 
     $hourly = [];
     $chartLabels = [];
