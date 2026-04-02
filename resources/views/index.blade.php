@@ -411,7 +411,7 @@
         <img src="https://openweathermap.org/img/wn/${item.icon}.png" width="40" height="40" alt="${item.description}">
         <div class="forecast-hour-temp">${item.temp}°C</div>
         <div class="small text-muted">${item.description?.substring(0,3)}</div>
-        ${pop > 0 ? `<div class="small text-primary"><i class="bi ${popIcon}"></i>${pop}%</div>` : ''}
+        ${pop > 0 ? `<div class="small text-secondary"><i class="bi ${popIcon}"></i>${pop}%</div>` : ''}
         </div>`;
         });
         html += `</div>`;
