@@ -438,6 +438,7 @@
     if (!modalBody) return;
 
     const details = item.details || item; // fallback
+    alert(JSON.stringify(details));
 
     const html = `
     <div class="text-center mb-3">
