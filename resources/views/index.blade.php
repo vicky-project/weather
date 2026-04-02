@@ -413,6 +413,7 @@
 
       // Forecast section
       if (window.forecastData && window.forecastData.hourly) {
+        alert(JSON.stringify(window.forecastData.hourly));
         html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam Ke Depan</h6><div class="d-flex flex-nowrap overflow-auto gap-2 pb-2" style="scrollbar-width: thin;">`;
         window.forecastData.hourly.forEach(item => {
         html += `<div class="forecast-hour-card"><div class="forecast-hour-time">${item.time}</div><img src="https://openweathermap.org/img/wn/${item.icon}.png" width="40" height="40" alt="${item.description}"><div class="forecast-hour-temp">${item.temp}°C</div><div class="small text-muted">${item.description.substring(0,3)}</div></div>`;
