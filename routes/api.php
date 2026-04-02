@@ -5,7 +5,7 @@ use Modules\Weather\Http\Controllers\WeatherController;
 
 Route::prefix('weather')->name('weather.')->group(function () {
   Route::post("current", [WeatherController::class, "getWeather"])->name("current");
-  Route::post("forecast", [WeatherController::class, "getHourlyForecast"])->name("hourly-forecast");
+  Route::post("hourly-forecast", [WeatherController::class, "getHourlyForecast"])->name("hourly-forecast");
   Route::post("settings", [WeatherController::class, "saveSettings"])->middleware("telegram.miniapp")->name("save-settings");
   Route::post("refresh", [WeatherController::class, 'refresh'])->name('refresh');
 });
