@@ -66,52 +66,36 @@ class WeatherController extends Controller
       'data' => $data
     ]);
   }
-  
-  /**
- * API untuk mendapatkan data forecast.
- */
-public function getForecast(Request $request)
-{
+
+  public function getHourlyForecast(Request $request) {
     $telegramUser = $request->get('telegram_user');
 
-    $data = null;
-
+    $location = null;
     if ($telegramUser && $this->userHasDefaultLocation($telegramUser)) {
-        $location = $telegramUser->data['default_location'] ?? null;
-        if ($location) {
-            if (isset($location['city'])) {
-                $data = $this->weatherService->getForecast(['city' => $location['city']]);
-            } elseif (isset($location['latitude']) && isset($location['longitude'])) {
-                $data = $this->weatherService->getForecast([
-                    'latitude' => $location['latitude'],
-                    'longitude' => $location['longitude']
-                ]);
-            }
-        }
+      $location = $telegramUser->data['default_location'] ?? null;
     } else {
-        $city = $request->input('city');
-        $lat = $request->input('latitude');
-        $lon = $request->input('longitude');
-
-        if ($city) {
-            $data = $this->weatherService->getForecast(['city' => $city]);
-        } elseif ($lat && $lon) {
-            $data = $this->weatherService->getForecast(['latitude' => $lat, 'longitude' => $lon]);
-        }
+      $city = $request->input('city');
+      $lat = $request->input('latitude');
+      $lon = $request->input('longitude');
+      if ($city) {
+        $location = ['city' => $city];
+      } elseif ($lat && $lon) {
+        $location = ['latitude' => $lat,
+          'longitude' => $lon];
+      }
     }
 
+    if (!$location) {
+      return response()->json(['success' => false, 'message' => 'Lokasi tidak ditemukan'], 400);
+    }
+
+    $data = $this->weatherService->getHourlyForecast($location);
     if (!$data) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Data forecast tidak tersedia'
-        ], 404);
+      return response()->json(['success' => false, 'message' => 'Data forecast tidak tersedia'], 404);
     }
 
-    return response()->json([
-        'success' => true,
-        'data' => $data
-    ]);
-}
+    return response()->json(['success' => true, 'data' => $data]);
+  }
 
   /**
   * Simpan pengaturan cuaca pengguna.

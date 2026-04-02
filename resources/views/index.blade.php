@@ -1,4 +1,3 @@
-{{-- resources/views/weather/index.blade.php --}}
 @extends('coreui::layouts.mini-app')
 @section('title', 'Informasi Cuaca')
 
@@ -41,7 +40,6 @@
 
 @push('styles')
 <style>
-  /* Tema Telegram */
   body {
     background-color: var(--tg-theme-bg-color);
     color: var(--tg-theme-text-color);
@@ -114,26 +112,24 @@
     font-size: 0.8rem;
     color: var(--tg-theme-hint-color);
   }
-  .forecast-card {
+  .forecast-hour-card {
     background-color: var(--tg-theme-section-bg-color);
     border-radius: 12px;
-    padding: 10px;
+    padding: 8px;
     text-align: center;
-    transition: transform 0.2s;
+    min-width: 80px;
   }
-  .forecast-card:hover {
-    transform: translateY(-2px);
-  }
-  .forecast-date {
-    font-size: 0.9rem;
+  .forecast-hour-time {
+    font-size: 0.8rem;
     font-weight: 500;
   }
-  .forecast-temp {
-    font-size: 1.1rem;
-    font-weight: 500;
+  .forecast-hour-temp {
+    font-size: 1rem;
+    font-weight: 600;
   }
-  .forecast-icon {
-    font-size: 1.8rem;
+  #tempChart {
+    max-height: 180px;
+    width: 100%;
   }
   .timeout-option {
     margin-top: 1rem;
@@ -143,11 +139,12 @@
 @endpush
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   // State management
-  let currentState = 'loading'; // loading, denied, unavailable, manual, error, loaded
+  let currentState = 'loading';
   let errorMessage = '';
-  let usingDefault = true; // apakah sedang menampilkan lokasi default
+  let usingDefault = true;
   let locationTimeout;
 
   const hasDefaultLocation = @json($telegramUser && isset($telegramUser->data['default_location']) && !empty($telegramUser->data['default_location']));
@@ -155,203 +152,8 @@
 
   const appElement = document.getElementById('weatherApp');
 
-  function buildUI() {
-    let html = '';
-    if (currentState === 'loading') {
-      html = `
-      <div class="text-center py-5">
-      <div class="spinner-border" role="status">
-      <span class="visually-hidden">Memuat...</span>
-      </div>
-      <p class="mt-3">Memuat data cuaca...</p>
-      <div class="timeout-option">
-      <button class="btn btn-sm btn-outline-secondary" onclick="showManualInput()">
-      <i class="bi bi-pencil me-1"></i>Input Manual
-      </button>
-      </div>
-      </div>
-      `;
-    } else if (currentState === 'denied') {
-      html = `
-      <div class="text-center py-4">
-      <i class="bi bi-geo-alt-fill text-danger" style="font-size: 3rem;"></i>
-      <h5 class="mt-3">Akses Lokasi Ditolak</h5>
-      <p class="text-muted">Untuk menampilkan cuaca terkini, kami memerlukan akses lokasi Anda.</p>
-      <button class="btn btn-primary" onclick="openLocationSettings()">
-      <i class="bi bi-gear me-2"></i>Buka Pengaturan
-      </button>
-      <button class="btn btn-outline-secondary mt-2" onclick="initWeather()">
-      <i class="bi bi-arrow-repeat me-2"></i>Coba Lagi
-      </button>
-      <hr class="my-4">
-      <p class="text-muted">Atau masukkan lokasi manual:</p>
-      <button class="btn btn-outline-primary" onclick="showManualInput()">
-      <i class="bi bi-pencil me-2"></i>Input Manual
-      </button>
-      </div>
-      `;
-    } else if (currentState === 'unavailable') {
-      html = `
-      <div class="text-center py-4">
-      <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 3rem;"></i>
-      <h5 class="mt-3">Lokasi Tidak Tersedia</h5>
-      <p class="text-muted">Fitur lokasi tidak didukung atau waktu permintaan habis. Silakan masukkan lokasi secara manual.</p>
-      <button class="btn btn-primary" onclick="showManualInput()">
-      <i class="bi bi-pencil me-2"></i>Input Manual
-      </button>
-      </div>
-      `;
-    } else if (currentState === 'manual') {
-      html = `
-      <div>
-      <h5 class="mb-3">Masukkan Lokasi</h5>
-      <div class="mb-3">
-      <label for="city" class="form-label">Nama Kota</label>
-      <input type="text" class="form-control" id="city" placeholder="Contoh: Jakarta">
-      </div>
-      <div class="row">
-      <div class="col-md-6 mb-3">
-      <label for="latitude" class="form-label">Latitude</label>
-      <input type="number" step="any" class="form-control" id="latitude" placeholder="-6.2088">
-      </div>
-      <div class="col-md-6 mb-3">
-      <label for="longitude" class="form-label">Longitude</label>
-      <input type="number" step="any" class="form-control" id="longitude" placeholder="106.8456">
-      </div>
-      </div>
-      <button class="btn btn-success w-100" onclick="getManualLocation()">
-      <i class="bi bi-search me-2"></i>Cari Cuaca
-      </button>
-      <button class="btn btn-link mt-2" onclick="resetToInitial()">
-      Kembali
-      </button>
-      </div>
-      `;
-    } else if (currentState === 'error') {
-      html = `
-      <div class="text-center py-4">
-      <i class="bi bi-exclamation-circle-fill text-danger" style="font-size: 3rem;"></i>
-      <h5 class="mt-3">Terjadi Kesalahan</h5>
-      <p class="text-muted">${errorMessage}</p>
-      <button class="btn btn-primary" onclick="initWeather()">
-      <i class="bi bi-arrow-repeat me-2"></i>Coba Lagi
-      </button>
-      <button class="btn btn-outline-secondary mt-2" onclick="showManualInput()">
-      <i class="bi bi-pencil me-2"></i>Input Manual
-      </button>
-      </div>
-      `;
-    } else if (currentState === 'loaded' && window.weatherData) {
-      const w = window.weatherData;
-      const iconUrl = `https://openweathermap.org/img/wn/${w.weather.icon}@2x.png`;
-      html = `
-      <div>
-      <div class="text-center mb-4">
-      <h5>${w.location.name}, ${w.location.country}</h5>
-      <div class="weather-icon my-2">
-      <img src="${iconUrl}" alt="${w.weather.description}" style="width: 80px; height: 80px;">
-      </div>
-      <div class="temperature">${w.current.temperature}°C</div>
-      <div class="text-muted text-uppercase">${w.weather.description}</div>
-      <div class="mt-1">Terasa seperti ${w.current.feels_like}°C</div>
-      </div>
-
-      <div class="row g-2 mb-3">
-      <div class="col-4">
-      <div class="detail-item">
-      <i class="bi bi-droplet"></i>
-      <div class="value">${w.current.humidity}%</div>
-      <div class="label">Kelembaban</div>
-      </div>
-      </div>
-      <div class="col-4">
-      <div class="detail-item">
-      <i class="bi bi-wind"></i>
-      <div class="value">${w.current.wind_speed} m/s</div>
-      <div class="label">Angin</div>
-      </div>
-      </div>
-      <div class="col-4">
-      <div class="detail-item">
-      <i class="bi bi-cloud"></i>
-      <div class="value">${w.current.clouds}%</div>
-      <div class="label">Awan</div>
-      </div>
-      </div>
-      </div>
-
-      <div class="row g-2 mb-3">
-      <div class="col-6">
-      <div class="detail-item">
-      <i class="bi bi-sunrise"></i>
-      <div class="value">${w.sun.rise}</div>
-      <div class="label">Terbit</div>
-      </div>
-      </div>
-      <div class="col-6">
-      <div class="detail-item">
-      <i class="bi bi-sunset"></i>
-      <div class="value">${w.sun.set}</div>
-      <div class="label">Terbenam</div>
-      </div>
-      </div>
-      </div>
-
-      <div class="row g-2 mb-3">
-      <div class="col-6">
-      <div class="detail-item">
-      <i class="bi bi-speedometer2"></i>
-      <div class="value">${w.current.pressure} hPa</div>
-      <div class="label">Tekanan</div>
-      </div>
-      </div>
-      <div class="col-6">
-      <div class="detail-item">
-      <i class="bi bi-eye"></i>
-      <div class="value">${w.current.visibility ? (w.current.visibility/1000).toFixed(1): '-'} km</div>
-      <div class="label">Jarak Pandang</div>
-      </div>
-      </div>
-      </div>
-
-      <!-- Forecast Section -->
-      ${window.forecastData && window.forecastData.list ? `
-      <hr>
-      <h6 class="mt-3 mb-3"><i class="bi bi-calendar-week me-2"></i>Ramalan Cuaca 5 Hari</h6>
-      <div class="row g-2 mb-4">
-      ${window.forecastData.list.map(day => `
-      <div class="col-6 col-md-2">
-      <div class="forecast-card">
-      <div class="forecast-date">${day.date}</div>
-      <img src="https://openweathermap.org/img/wn/${day.weather.icon}.png" alt="${day.weather.description}" width="40" height="40">
-      <div class="forecast-temp">${day.temp.day}°C</div>
-      <div class="small text-muted">${day.weather.description}</div>
-      </div>
-      </div>
-      `).join('')}
-      </div>
-      `: ''}
-
-      <div class="text-muted small text-center mb-3">
-      <i class="bi bi-clock me-1"></i>Diperbarui: ${new Date(w.updated_at).toLocaleTimeString('id-ID')}
-      </div>
-
-      <div class="d-flex gap-2">
-      <button class="btn btn-outline-primary flex-grow-1" onclick="refreshWeather()">
-      <i class="bi bi-arrow-repeat me-2"></i>Perbarui
-      </button>
-      ${!usingDefault && hasDefaultLocation ? `
-      <button class="btn btn-outline-secondary" onclick="useDefaultLocation()">
-      <i class="bi bi-house me-2"></i>Kembali ke Default
-      </button>
-      `: ''}
-      </div>
-      </div>
-      `;
-    }
-    appElement.innerHTML = html;
-  }
-
+  // Fungsi-fungsi pendukung (clearLocationTimeout, initWeather, requestLocation, etc.)
+  // Di sini hanya ditampilkan yang baru atau yang perlu disesuaikan
   function clearLocationTimeout() {
     if (locationTimeout) {
       clearTimeout(locationTimeout);
@@ -367,7 +169,7 @@
       } else if (defaultLocation.latitude && defaultLocation.longitude) {
         fetchWeather(defaultLocation.latitude, defaultLocation.longitude);
       } else {
-        requestLocation(); // fallback
+        requestLocation();
       }
       return;
     }
@@ -482,7 +284,7 @@
     }
   };
 
-  // Fetch both current and forecast
+  // Fetch current weather
   function fetchWeather(lat, lon, city = null) {
     currentState = 'loading';
     buildUI();
@@ -496,7 +298,6 @@
       body.longitude = lon;
     }
 
-    // First fetch current weather
     fetch('{{ secure_url(config("app.url")) }}/api/weather/current', {
       method: 'POST',
       headers: {
@@ -510,8 +311,8 @@
     .then(data => {
     if (data.success) {
     window.weatherData = data.data;
-    // Now fetch forecast
-    return fetchForecast(lat, lon, city, initData);
+    // Lanjutkan fetch forecast per jam
+    return fetchHourlyForecast(lat, lon, city, initData);
     } else {
     currentState = 'error';
     errorMessage = data.message || 'Gagal memuat data cuaca.';
@@ -527,64 +328,64 @@
     });
   }
 
-  function fetchForecast(lat, lon, city, initData) {
-    const forecastBody = {};
+  // Fetch hourly forecast
+  function fetchHourlyForecast(lat, lon, city, initData) {
+    const body = {};
     if (city) {
-      forecastBody.city = city;
+      body.city = city;
     } else {
-      forecastBody.latitude = lat;
-      forecastBody.longitude = lon;
+      body.latitude = lat;
+      body.longitude = lon;
     }
 
-    fetch('{{ secure_url(config("app.url")) }}/api/weather/forecast', {
+    fetch('{{ secure_url(config("app.url")) }}/api/weather/hourly-forecast', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'X-Telegram-Init-Data': initData
       },
-      body: JSON.stringify(forecastBody)
+      body: JSON.stringify(body)
     })
     .then(response => response.json())
     .then(data => {
     if (data.success && data.data) {
     window.forecastData = data.data;
     } else {
-    window.forecastData = null; // forecast not available
+    window.forecastData = null;
     }
     currentState = 'loaded';
     buildUI();
+    if (window.forecastData && window.forecastData.chart) {
+    drawChart(window.forecastData.chart);
+    }
     })
     .catch(err => {
-    console.error('Forecast fetch error:', err);
+    console.error('Hourly forecast fetch error:', err);
     window.forecastData = null;
     currentState = 'loaded';
     buildUI();
     });
   }
 
+  // Refresh weather
   window.refreshWeather = async function() {
     if (window.weatherData) {
       const loc = window.weatherData.location;
-      usingDefault = false; // setelah refresh, anggap bukan default lagi
+      usingDefault = false;
       try {
         const initData = window.Telegram?.WebApp?.initData || '';
-
-        const res = await fetch('{{ secure_url(config("app.url")) }}/api/weather/refresh', {
+        await fetch('{{ secure_url(config("app.url")) }}/api/weather/refresh', {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
             'X-Telegram-Init-Data': initData
           },
-          body: JSON.stringify({ lat: loc.latitude, lon: loc.longitude})
+          body: JSON.stringify({ lat: loc.latitude, lon: loc.longitude })
         });
-        const data = await res.json();
-        if (data.message) {
-          showToast(data.message, result.success ? 'success': 'danger');
-        }
       } catch(e) {
-        showToast(e.message, 'danger') || alert(e.message);
+        console.error(e);
       }
       fetchWeather(loc.latitude, loc.longitude);
     } else {
@@ -592,6 +393,75 @@
     }
   };
 
+  // Build UI utama
+  function buildUI() {
+    let html = '';
+    if (currentState === 'loading') {
+      html = `<div class="text-center py-5"><div class="spinner-border"><span class="visually-hidden">Memuat...</span></div><p class="mt-3">Memuat data cuaca...</p><div class="timeout-option"><button class="btn btn-sm btn-outline-secondary" onclick="showManualInput()"><i class="bi bi-pencil me-1"></i>Input Manual</button></div></div>`;
+    } else if (currentState === 'denied') {
+      html = `<div class="text-center py-4"><i class="bi bi-geo-alt-fill text-danger" style="font-size: 3rem;"></i><h5 class="mt-3">Akses Lokasi Ditolak</h5><p class="text-muted">Untuk menampilkan cuaca terkini, kami memerlukan akses lokasi Anda.</p><button class="btn btn-primary" onclick="openLocationSettings()"><i class="bi bi-gear me-2"></i>Buka Pengaturan</button><button class="btn btn-outline-secondary mt-2" onclick="initWeather()"><i class="bi bi-arrow-repeat me-2"></i>Coba Lagi</button><hr class="my-4"><p class="text-muted">Atau masukkan lokasi manual:</p><button class="btn btn-outline-primary" onclick="showManualInput()"><i class="bi bi-pencil me-2"></i>Input Manual</button></div>`;
+    } else if (currentState === 'unavailable') {
+      html = `<div class="text-center py-4"><i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 3rem;"></i><h5 class="mt-3">Lokasi Tidak Tersedia</h5><p class="text-muted">Fitur lokasi tidak didukung atau waktu permintaan habis. Silakan masukkan lokasi secara manual.</p><button class="btn btn-primary" onclick="showManualInput()"><i class="bi bi-pencil me-2"></i>Input Manual</button></div>`;
+    } else if (currentState === 'manual') {
+      html = `<div><h5 class="mb-3">Masukkan Lokasi</h5><div class="mb-3"><label for="city" class="form-label">Nama Kota</label><input type="text" class="form-control" id="city" placeholder="Contoh: Jakarta"></div><div class="row"><div class="col-md-6 mb-3"><label for="latitude" class="form-label">Latitude</label><input type="number" step="any" class="form-control" id="latitude" placeholder="-6.2088"></div><div class="col-md-6 mb-3"><label for="longitude" class="form-label">Longitude</label><input type="number" step="any" class="form-control" id="longitude" placeholder="106.8456"></div></div><button class="btn btn-success w-100" onclick="getManualLocation()"><i class="bi bi-search me-2"></i>Cari Cuaca</button><button class="btn btn-link mt-2" onclick="resetToInitial()">Kembali</button></div>`;
+    } else if (currentState === 'error') {
+      html = `<div class="text-center py-4"><i class="bi bi-exclamation-circle-fill text-danger" style="font-size: 3rem;"></i><h5 class="mt-3">Terjadi Kesalahan</h5><p class="text-muted">${errorMessage}</p><button class="btn btn-primary" onclick="initWeather()"><i class="bi bi-arrow-repeat me-2"></i>Coba Lagi</button><button class="btn btn-outline-secondary mt-2" onclick="showManualInput()"><i class="bi bi-pencil me-2"></i>Input Manual</button></div>`;
+    } else if (currentState === 'loaded' && window.weatherData) {
+      const w = window.weatherData;
+      const iconUrl = `https://openweathermap.org/img/wn/${w.weather.icon}@2x.png`;
+      html = `<div><div class="text-center mb-4"><h5>${w.location.name}, ${w.location.country}</h5><div class="weather-icon my-2"><img src="${iconUrl}" alt="${w.weather.description}" style="width: 80px; height: 80px;"></div><div class="temperature">${w.current.temperature}°C</div><div class="text-muted text-uppercase">${w.weather.description}</div><div class="mt-1">Terasa seperti ${w.current.feels_like}°C</div></div><div class="row g-2 mb-3"><div class="col-4"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${w.current.humidity}%</div><div class="label">Kelembaban</div></div></div><div class="col-4"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${w.current.wind_speed} m/s</div><div class="label">Angin</div></div></div><div class="col-4"><div class="detail-item"><i class="bi bi-cloud"></i><div class="value">${w.current.clouds}%</div><div class="label">Awan</div></div></div></div><div class="row g-2 mb-3"><div class="col-6"><div class="detail-item"><i class="bi bi-sunrise"></i><div class="value">${w.sun.rise}</div><div class="label">Terbit</div></div></div><div class="col-6"><div class="detail-item"><i class="bi bi-sunset"></i><div class="value">${w.sun.set}</div><div class="label">Terbenam</div></div></div></div><div class="row g-2 mb-3"><div class="col-6"><div class="detail-item"><i class="bi bi-speedometer2"></i><div class="value">${w.current.pressure} hPa</div><div class="label">Tekanan</div></div></div><div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">${w.current.visibility ? (w.current.visibility/1000).toFixed(1): '-'} km</div><div class="label">Jarak Pandang</div></div></div></div>`;
+
+      // Forecast section
+      if (window.forecastData && window.forecastData.hourly) {
+        html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam Ke Depan</h6><div class="d-flex flex-nowrap overflow-auto gap-2 pb-2" style="scrollbar-width: thin;">`;
+        window.forecastData.hourly.forEach(item => {
+        html += `<div class="forecast-hour-card"><div class="forecast-hour-time">${item.time}</div><img src="https://openweathermap.org/img/wn/${item.icon}.png" width="40" height="40" alt="${item.description}"><div class="forecast-hour-temp">${item.temp}°C</div><div class="small text-muted">${item.description.substring(0,3)}</div></div>`;
+        });
+        html += `</div><div class="mt-3"><canvas id="tempChart" height="150"></canvas></div>`;
+      }
+
+      html += `<div class="text-muted small text-center mb-3"><i class="bi bi-clock me-1"></i>Diperbarui: ${new Date(w.updated_at).toLocaleTimeString('id-ID')}</div><div class="d-flex gap-2"><button class="btn btn-outline-primary flex-grow-1" onclick="refreshWeather()"><i class="bi bi-arrow-repeat me-2"></i>Perbarui</button>${!usingDefault && hasDefaultLocation ? `<button class="btn btn-outline-secondary" onclick="useDefaultLocation()"><i class="bi bi-house me-2"></i>Kembali ke Default</button>`: ''}</div></div>`;
+
+      appElement.innerHTML = html;
+      if (window.forecastData && window.forecastData.chart) {
+        drawChart(window.forecastData.chart);
+      }
+      return;
+    }
+    appElement.innerHTML = html;
+  }
+
+  function drawChart(chartData) {
+    const ctx = document.getElementById('tempChart');
+    if (!ctx) return;
+    if (window.tempChart) window.tempChart.destroy();
+    window.tempChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+    labels: chartData.labels,
+    datasets: [{
+    label: 'Suhu (°C)',
+    data: chartData.temps,
+    borderColor: 'rgb(75, 192, 192)',
+    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+    tension: 0.3,
+    fill: true,
+    pointBackgroundColor: 'rgb(75, 192, 192)',
+    pointBorderColor: '#fff',
+    pointRadius: 4,
+    pointHoverRadius: 6
+    }]
+    },
+    options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw}°C` } } },
+    scales: { y: { beginAtZero: false, title: { display: true, text: 'Suhu (°C)' } }, x: { title: { display: true, text: 'Waktu' } } }
+    }
+    });
+  }
+
+  // Start
   document.addEventListener('DOMContentLoaded', function() {
   initWeather();
   document.getElementById('changeLocationBtn').addEventListener('click', () => showManualInput());
