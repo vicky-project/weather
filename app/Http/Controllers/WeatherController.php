@@ -44,6 +44,7 @@ class WeatherController extends Controller
     // 1. Jika ada user dan dia punya lokasi default, gunakan itu
     if ($telegramUser && $this->userHasDefaultLocation($telegramUser)) {
       $data = $this->weatherService->getWeatherForUser($telegramUser);
+      \Log::debug("Current", ['data' => $data]);
     }
     // 2. Jika tidak, coba gunakan input manual dari request
     else {
