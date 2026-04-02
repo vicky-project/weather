@@ -492,7 +492,6 @@
       <div class="temperature">${w.current.temperature}°C</div>
       <div class="text-muted text-uppercase">${w.weather.description}</div>
       <div class="mt-1">Terasa seperti ${w.current.feels_like}°C</div>
-      ${generateSummary() ? `<div class="mt-2 small text-muted">${generateSummary()}</div>`: ''}
       </div>
       <div class="row g-2 mb-3">
       <div class="col-4"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${w.current.humidity}%</div><div class="label">Kelembaban</div></div></div>
@@ -507,6 +506,16 @@
       <div class="col-6"><div class="detail-item"><i class="bi bi-speedometer2"></i><div class="value">${w.current.pressure} mbar</div><div class="label">Tekanan</div></div></div>
       <div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">${w.current.visibility ? (w.current.visibility/1000).toFixed(1): '-'} km</div><div class="label">Jarak Pandang</div></div></div>
       </div>`;
+
+      const summaryText = generateSummary();
+      if (summaryText) {
+        html += `
+        <div class="alert alert-info my-3 py-2 px-3" style="background-color: rgba(var(--tg-theme-button-color-rgb), 0.1); border: none; border-radius: 12px;">
+        <i class="bi bi-chat-dots-fill me-2" style="color: var(--tg-theme-button-color);"></i>
+        <span class="small">${summaryText}</span>
+        </div>
+        `;
+      }
 
       // AQI Section
       if (window.aqiData) {
