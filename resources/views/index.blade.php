@@ -40,7 +40,6 @@
 
 @push('styles')
 <style>
-  /* (sama seperti sebelumnya, tidak diubah) */
   body {
     background-color: var(--tg-theme-bg-color);
     color: var(--tg-theme-text-color);
@@ -143,7 +142,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   // ==================== STATE ====================
-  let currentState = 'loading'; // loading, denied, unavailable, manual, error, loaded
+  let currentState = 'loading';
   let errorMessage = '';
   let usingDefault = true;
   let locationTimeout;
@@ -161,14 +160,70 @@
     }
   }
 
-  // ==================== LOCATION & WEATHER FETCH ====================
+  // ==================== LOCATION & WEATHER FETCH (ASYNC/AWAIT) ====================
+  async function fetchAllWeather(lat, lon, city = null) {
+    try {
+      const initData = window.Telegram?.WebApp?.initData || '';
+      const body = {};
+      if (city) {
+        body.city = city;
+      } else {
+        body.latitude = lat;
+        body.longitude = lon;
+      }
+
+      // Ambil current weather
+      const currentRes = await fetch('{{ secure_url(config("app.url")) }}/api/weather/current', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Telegram-Init-Data': initData
+        },
+        body: JSON.stringify(body)
+      });
+      const currentData = await currentRes.json();
+      if (!currentData.success) {
+        throw new Error(currentData.message || 'Gagal memuat cuaca');
+      }
+      window.weatherData = currentData.data;
+
+      // Ambil hourly forecast
+      const forecastRes = await fetch('{{ secure_url(config("app.url")) }}/api/weather/hourly-forecast', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Telegram-Init-Data': initData
+        },
+        body: JSON.stringify(body)
+      });
+      const forecastData = await forecastRes.json();
+      if (forecastData.success && forecastData.data) {
+        window.forecastData = forecastData.data;
+      } else {
+        console.warn('Forecast tidak tersedia:', forecastData.message);
+        window.forecastData = null;
+      }
+
+      currentState = 'loaded';
+      buildUI();
+    } catch (err) {
+      console.error('Error fetching weather:', err);
+      currentState = 'error';
+      errorMessage = err.message || 'Gagal memuat data cuaca';
+      buildUI();
+    }
+  }
+
+  // ==================== LOCATION HANDLERS ====================
   function initWeather() {
     if (hasDefaultLocation && defaultLocation) {
       usingDefault = true;
       if (defaultLocation.city) {
-        fetchWeather(null, null, defaultLocation.city);
+        fetchAllWeather(null, null, defaultLocation.city);
       } else if (defaultLocation.latitude && defaultLocation.longitude) {
-        fetchWeather(defaultLocation.latitude, defaultLocation.longitude);
+        fetchAllWeather(defaultLocation.latitude, defaultLocation.longitude);
       } else {
         requestLocation();
       }
@@ -201,7 +256,7 @@
         tg.LocationManager.getLocation((locationData) => {
         clearLocationTimeout();
         if (locationData) {
-        fetchWeather(locationData.latitude, locationData.longitude);
+        fetchAllWeather(locationData.latitude, locationData.longitude);
         } else {
         currentState = 'denied';
         buildUI();
@@ -222,7 +277,7 @@
       navigator.geolocation.getCurrentPosition(
       (position) => {
       clearLocationTimeout();
-      fetchWeather(position.coords.latitude, position.coords.longitude);
+      fetchAllWeather(position.coords.latitude, position.coords.longitude);
       },
       (error) => {
       clearLocationTimeout();
@@ -239,91 +294,11 @@
     }
   }
 
-  function fetchWeather(lat, lon, city = null) {
-    currentState = 'loading';
-    buildUI();
-
-    const initData = window.Telegram?.WebApp?.initData || '';
-    const body = {};
-    if (city) {
-      body.city = city;
-    } else {
-      body.latitude = lat;
-      body.longitude = lon;
-    }
-
-    fetch('{{ secure_url(config("app.url")) }}/api/weather/current', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': initData
-      },
-      body: JSON.stringify(body)
-    })
-    .then(response => response.json())
-    .then(data => {
-    if (data.success) {
-    window.weatherData = data.data;
-    // Lanjutkan fetch forecast
-    fetchHourlyForecast(lat, lon, city, initData);
-    } else {
-    currentState = 'error';
-    errorMessage = data.message || 'Gagal memuat data cuaca.';
-    buildUI();
-    }
-    })
-    .catch(err => {
-    console.error('Fetch error:', err);
-    currentState = 'error';
-    errorMessage = 'Koneksi ke server gagal.';
-    buildUI();
-    });
-  }
-
-  function fetchHourlyForecast(lat, lon, city, initData) {
-    const body = {};
-    if (city) {
-      body.city = city;
-    } else {
-      body.latitude = lat;
-      body.longitude = lon;
-    }
-
-    fetch('{{ secure_url(config("app.url")) }}/api/weather/hourly-forecast', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': initData
-      },
-      body: JSON.stringify(body)
-    })
-    .then(response => response.json())
-    .then(data => {
-    if (data.success && data.data) {
-    window.forecastData = data.data;
-    } else {
-    alert("Forecast failed: "+ data.message);
-    console.warn('Forecast failed:', data.message);
-    window.forecastData = null;
-    }
-    currentState = 'loaded';
-    buildUI(); // Panggil buildUI setelah data siap
-    })
-    .catch(err => {
-    console.error('Hourly forecast fetch error:', err);
-    window.forecastData = null;
-    currentState = 'loaded';
-    buildUI();
-    });
-  }
-
   function refreshWeather() {
     if (window.weatherData) {
       const loc = window.weatherData.location;
       usingDefault = false;
-      fetchWeather(loc.latitude, loc.longitude);
+      fetchAllWeather(loc.latitude, loc.longitude);
     } else {
       initWeather();
     }
@@ -333,9 +308,9 @@
     if (hasDefaultLocation && defaultLocation) {
       usingDefault = true;
       if (defaultLocation.city) {
-        fetchWeather(null, null, defaultLocation.city);
+        fetchAllWeather(null, null, defaultLocation.city);
       } else if (defaultLocation.latitude && defaultLocation.longitude) {
-        fetchWeather(defaultLocation.latitude, defaultLocation.longitude);
+        fetchAllWeather(defaultLocation.latitude, defaultLocation.longitude);
       }
     }
   }
@@ -346,27 +321,22 @@
       appElement.innerHTML = `<div class="text-center py-5"><div class="spinner-border"><span class="visually-hidden">Memuat...</span></div><p class="mt-3">Memuat data cuaca...</p><div class="timeout-option"><button class="btn btn-sm btn-outline-secondary" onclick="showManualInput()"><i class="bi bi-pencil me-1"></i>Input Manual</button></div></div>`;
       return;
     }
-
     if (currentState === 'denied') {
       appElement.innerHTML = `<div class="text-center py-4"><i class="bi bi-geo-alt-fill text-danger" style="font-size: 3rem;"></i><h5 class="mt-3">Akses Lokasi Ditolak</h5><p class="text-muted">Untuk menampilkan cuaca terkini, kami memerlukan akses lokasi Anda.</p><button class="btn btn-primary" onclick="openLocationSettings()"><i class="bi bi-gear me-2"></i>Buka Pengaturan</button><button class="btn btn-outline-secondary mt-2" onclick="initWeather()"><i class="bi bi-arrow-repeat me-2"></i>Coba Lagi</button><hr class="my-4"><p class="text-muted">Atau masukkan lokasi manual:</p><button class="btn btn-outline-primary" onclick="showManualInput()"><i class="bi bi-pencil me-2"></i>Input Manual</button></div>`;
       return;
     }
-
     if (currentState === 'unavailable') {
       appElement.innerHTML = `<div class="text-center py-4"><i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 3rem;"></i><h5 class="mt-3">Lokasi Tidak Tersedia</h5><p class="text-muted">Fitur lokasi tidak didukung atau waktu permintaan habis. Silakan masukkan lokasi secara manual.</p><button class="btn btn-primary" onclick="showManualInput()"><i class="bi bi-pencil me-2"></i>Input Manual</button></div>`;
       return;
     }
-
     if (currentState === 'manual') {
       appElement.innerHTML = `<div><h5 class="mb-3">Masukkan Lokasi</h5><div class="mb-3"><label for="city" class="form-label">Nama Kota</label><input type="text" class="form-control" id="city" placeholder="Contoh: Jakarta"></div><div class="row"><div class="col-md-6 mb-3"><label for="latitude" class="form-label">Latitude</label><input type="number" step="any" class="form-control" id="latitude" placeholder="-6.2088"></div><div class="col-md-6 mb-3"><label for="longitude" class="form-label">Longitude</label><input type="number" step="any" class="form-control" id="longitude" placeholder="106.8456"></div></div><button class="btn btn-success w-100" onclick="getManualLocation()"><i class="bi bi-search me-2"></i>Cari Cuaca</button><button class="btn btn-link mt-2" onclick="resetToInitial()">Kembali</button></div>`;
       return;
     }
-
     if (currentState === 'error') {
       appElement.innerHTML = `<div class="text-center py-4"><i class="bi bi-exclamation-circle-fill text-danger" style="font-size: 3rem;"></i><h5 class="mt-3">Terjadi Kesalahan</h5><p class="text-muted">${errorMessage}</p><button class="btn btn-primary" onclick="initWeather()"><i class="bi bi-arrow-repeat me-2"></i>Coba Lagi</button><button class="btn btn-outline-secondary mt-2" onclick="showManualInput()"><i class="bi bi-pencil me-2"></i>Input Manual</button></div>`;
       return;
     }
-
     if (currentState === 'loaded' && window.weatherData) {
       const w = window.weatherData;
       const iconUrl = `https://openweathermap.org/img/wn/${w.weather.icon}@2x.png`;
@@ -392,8 +362,7 @@
       <div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">${w.current.visibility ? (w.current.visibility/1000).toFixed(1): '-'} km</div><div class="label">Jarak Pandang</div></div></div>
       </div>`;
 
-      // ========== FORECAST SECTION ==========
-      alert(JSON.stringify(window.forecastData));
+      // FORECAST SECTION
       if (window.forecastData && window.forecastData.hourly && window.forecastData.hourly.length) {
         html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam Ke Depan</h6>
         <div class="d-flex flex-nowrap overflow-auto gap-2 pb-2" style="scrollbar-width: thin;">`;
@@ -410,7 +379,6 @@
           html += `<div class="mt-3"><canvas id="tempChart" height="150"></canvas></div>`;
         }
       } else {
-        // Jika tidak ada forecast, tampilkan pesan
         html += `<div class="alert alert-warning mt-3">Data forecast tidak tersedia saat ini.</div>`;
       }
 
@@ -422,12 +390,9 @@
       </div>`;
 
       appElement.innerHTML = html;
-
-      // Gambar chart jika ada data
       if (window.forecastData && window.forecastData.chart && window.forecastData.chart.labels) {
         drawChart(window.forecastData.chart);
       }
-      return;
     }
   }
 
@@ -482,10 +447,10 @@
 
     if (lat && lon) {
       usingDefault = false;
-      fetchWeather(parseFloat(lat), parseFloat(lon), null);
+      fetchAllWeather(parseFloat(lat), parseFloat(lon), null);
     } else if (city) {
       usingDefault = false;
-      fetchWeather(null, null, city);
+      fetchAllWeather(null, null, city);
     } else {
       alert('Masukkan kota atau koordinat yang valid.');
     }
