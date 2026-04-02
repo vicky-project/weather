@@ -212,6 +212,29 @@
         throw new Error(currentData.message || 'Gagal memuat cuaca');
       }
       window.weatherData = currentData.data;
+
+      // Setelah mendapatkan currentData dan window.weatherData
+      if (window.weatherData.location.latitude && window.weatherData.location.longitude) {
+        const aqiRes = await fetch('{{ secure_url(config("app.url")) }}/api/weather/air-quality', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Telegram-Init-Data': initData
+          },
+          body: JSON.stringify({
+          latitude: window.weatherData.location.latitude,
+          longitude: window.weatherData.location.longitude
+          })
+        });
+        const aqiData = await aqiRes.json();
+        if (aqiData.success && aqiData.data) {
+          window.aqiData = aqiData.data;
+        } else {
+          window.aqiData = null;
+        }
+      }
+
       const timezoneOffset = window.weatherData.location.timezone_offset || 0;
 
       // Hourly forecast
@@ -398,6 +421,30 @@
       <div class="col-6"><div class="detail-item"><i class="bi bi-speedometer2"></i><div class="value">${w.current.pressure} mbar</div><div class="label">Tekanan</div></div></div>
       <div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">${w.current.visibility ? (w.current.visibility/1000).toFixed(1): '-'} km</div><div class="label">Jarak Pandang</div></div></div>
       </div>`;
+
+      // AQI Section
+      if (window.aqiData) {
+        const aqi = window.aqiData;
+        let aqiColor = '#198754'; // hijau untuk baik
+        if (aqi.aqi === 2) aqiColor = '#ffc107'; // kuning
+        else if (aqi.aqi === 3) aqiColor = '#fd7e14'; // oranye
+        else if (aqi.aqi >= 4) aqiColor = '#dc3545'; // merah
+
+        html += `<hr>
+        <div class="mb-3">
+        <h6><i class="bi bi-activity me-2"></i>Kualitas Udara (AQI)</h6>
+        <div class="detail-item" style="background-color: rgba(var(--tg-theme-button-color-rgb), 0.05);">
+        <div class="value" style="color: ${aqiColor};">${aqi.level}</div>
+        <div class="label">Indeks: ${aqi.aqi}</div>
+        <div class="small text-muted mt-2">${aqi.recommendation}</div>
+        <div class="row g-1 mt-2">
+        <div class="col-4"><span class="small">PM2.5: ${aqi.components.pm2_5} μg/m³</span></div>
+        <div class="col-4"><span class="small">PM10: ${aqi.components.pm10} μg/m³</span></div>
+        <div class="col-4"><span class="small">O3: ${aqi.components.o3} μg/m³</span></div>
+        </div>
+        </div>
+        </div>`;
+      }
 
       // Forecast section dengan klik
       if (window.forecastData && window.forecastData.hourly && window.forecastData.hourly.length) {

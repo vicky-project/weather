@@ -98,6 +98,21 @@ class WeatherController extends Controller
     return response()->json(['success' => true, 'data' => $data]);
   }
 
+  public function getAirQuality(Request $request) {
+    $lat = $request->input('latitude');
+    $lon = $request->input('longitude');
+    if (!$lat || !$lon) {
+      return response()->json(['success' => false, 'message' => 'Koordinat diperlukan'], 400);
+    }
+
+    $data = $this->weatherService->getAirQuality((float)$lat, (float)$lon);
+    if (!$data) {
+      return response()->json(['success' => false, 'message' => 'Data kualitas udara tidak tersedia'], 404);
+    }
+
+    return response()->json(['success' => true, 'data' => $data]);
+  }
+
   /**
   * Simpan pengaturan cuaca pengguna.
   */

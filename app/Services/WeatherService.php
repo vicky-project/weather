@@ -507,6 +507,90 @@ class WeatherService
   }
 
   /**
+  * Mendapatkan data kualitas udara (AQI) berdasarkan koordinat
+  */
+  public function getAirQuality(float $lat, float $lon): ?array
+  {
+    $cacheKey = 'air_quality_' . md5("{$lat},{$lon}");
+    $cached = Cache::get($cacheKey);
+    if ($cached !== null) {
+      Log::debug("Air quality cache hit", ["key" => $cacheKey]);
+      return $cached;
+    }
+
+    try {
+      $url = "https://api.openweathermap.org/data/2.5/air_pollution";
+      $response = Http::get($url, [
+        'lat' => $lat,
+        'lon' => $lon,
+        'appid' => $this->apiKey,
+      ]);
+
+      if (!$response->successful()) {
+        Log::warning('Air pollution API error', ['status' => $response->status()]);
+        return null;
+      }
+
+      $data = $response->json();
+      if (empty($data) || !isset($data['list'][0])) {
+        return null;
+      }
+
+      $aqiData = $data['list'][0];
+      $aqi = $aqiData['main']['aqi']; // 1-5
+      $components = $aqiData['components'];
+
+      $result = [
+        'aqi' => $aqi,
+        'level' => $this->getAqiLevel($aqi),
+        'recommendation' => $this->getAqiRecommendation($aqi),
+        'components' => [
+          'pm2_5' => round($components['pm2_5'] ?? 0, 1),
+          'pm10' => round($components['pm10'] ?? 0, 1),
+          'o3' => round($components['o3'] ?? 0, 1),
+          'no2' => round($components['no2'] ?? 0, 1),
+          'so2' => round($components['so2'] ?? 0, 1),
+          'co' => round($components['co'] ?? 0, 1),
+        ],
+      ];
+
+      Cache::put($cacheKey, $result, $this->cacheDuration);
+      return $result;
+    } catch (Throwable $e) {
+      Log::error('Gagal mengambil data kualitas udara', [
+        'lat' => $lat,
+        'lon' => $lon,
+        'error' => $e->getMessage()
+      ]);
+      return null;
+    }
+  }
+
+  protected function getAqiLevel($aqi): string
+  {
+    switch ($aqi) {
+      case 1: return 'Baik';
+      case 2: return 'Sedang';
+      case 3: return 'Tidak Sehat untuk Sensitif';
+      case 4: return 'Tidak Sehat';
+      case 5: return 'Sangat Tidak Sehat';
+      default: return 'Tidak diketahui';
+    }
+  }
+
+  protected function getAqiRecommendation($aqi): string
+  {
+    switch ($aqi) {
+    case 1: return 'Aktivitas luar ruangan aman.';
+    case 2: return 'Kelompok sensitif sebaiknya kurangi aktivitas luar yang lama.';
+    case 3: return 'Kurangi aktivitas luar ruangan yang berat.';
+    case 4: return 'Hindari aktivitas luar ruangan. Gunakan masker jika keluar.';
+    case 5: return 'Tetap di dalam ruangan. Gunakan pembersih udara.';
+    default: return '';
+    }
+  }
+
+  /**
   * Generate cache key.
   */
   protected function generateCacheKey(array $location): string
