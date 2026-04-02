@@ -11,6 +11,8 @@ use Carbon\Carbon;
 
 class WeatherService
 {
+  protected $timezone;
+
   protected int $cacheDuration = 900; // 30 menit
   protected string $geocodingUrl = 'http://api.openweathermap.org/geo/1.0/direct';
   protected string $weatherUrl;
@@ -306,6 +308,8 @@ class WeatherService
     $clouds = $rawData->clouds ?? null;
     $sys = $rawData->sys ?? null;
     $visibility = $rawData->visibility ?? null;
+    \Log::debug("raw data",
+      ["data" => $rawData]);
 
     return [
       'location' => [
