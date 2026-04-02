@@ -464,6 +464,7 @@ class WeatherService
         if (count($filtered) >= $limit) break;
       }
     }
+    \Log::debug("filtered forecast", ["data" => $filtered]);
 
     foreach ($filtered as $item) {
       $dt = Carbon::createFromTimestamp($item['dt']);
