@@ -448,7 +448,6 @@ class WeatherService
         'chart' => ['labels' => [],
           'temps' => []]];
     }
-    \Log::debug("forecast", ["data" => $list]);
 
     $hourly = [];
     $chartLabels = [];
@@ -471,12 +470,16 @@ class WeatherService
       $timeLabel = $dt->format('H:i');
       $weather = $item['weather'][0] ?? [];
       $temp = $item['main']['temp'] ?? 0;
+      $feelsLike = $item['main']['feels_like'] ?? 0;
 
       $hourly[] = [
         'time' => $timeLabel,
         'temp' => round($temp),
+        'feels_like' => round($feelsLike),
+        'humidity' => $item['main']['humidity'] ?? 0,
         'icon' => $weather['icon'] ?? null,
         'description' => $weather['description'] ?? null,
+        'pressure' => $item['main']['pressure']
       ];
       $chartLabels[] = $timeLabel;
       $chartTemps[] = round($temp);

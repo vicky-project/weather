@@ -437,8 +437,6 @@
     const modalBody = document.getElementById('forecastDetailBody');
     if (!modalBody) return;
 
-    // Gunakan data yang ada, asumsikan item memiliki properti detail
-    // Jika belum, kita bisa simpan data lengkap di window.forecastData.hourlyDetails
     const details = item.details || item; // fallback
 
     const html = `
