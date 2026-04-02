@@ -591,9 +591,9 @@ class WeatherService
   /**
   * Mendapatkan indeks UV berdasarkan koordinat
   */
-  public function getUVIndex(float $lat, float $lon): ?array
+  public function getUVIndex(float $lat, float $lon, ?string $timezone = null): ?array
   {
-    $cacheKey = 'uv_index_' . md5("{$lat},{$lon}");
+    $cacheKey = 'uv_index_' . md5("{$lat},{$lon}_{$timezone}");
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
       Log::debug("UV index cache hit", ["key" => $cacheKey]);
@@ -603,12 +603,18 @@ class WeatherService
     try {
       // Menggunakan Open-Meteo API (gratis, tanpa API key)
       $url = "https://api.open-meteo.com/v1/forecast";
-      $response = Http::get($url, [
+      $params = [
         'latitude' => $lat,
         'longitude' => $lon,
         'daily' => 'uv_index_max',
-        'timezone' => 'auto',
-      ]);
+      ];
+
+      if ($timezone) {
+        $params["timezone"] = $timezone;
+      } else {
+        $params["timezone"] = "auto";
+      }
+      $response = Http::get($url, $params);
 
       if (!$response->successful()) {
         Log::warning('Open-Meteo API error for UV', ['status' => $response->status()]);

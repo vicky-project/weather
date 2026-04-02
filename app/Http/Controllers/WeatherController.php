@@ -116,12 +116,12 @@ class WeatherController extends Controller
   public function getUVIndex(Request $request) {
     $lat = $request->input('latitude');
     $lon = $request->input('longitude');
+    $timezone = $request->input('timezone');
     if (!$lat || !$lon) {
       return response()->json(['success' => false, 'message' => 'Koordinat diperlukan'], 400);
     }
 
-    $data = $this->weatherService->getUVIndex((float)$lat, (float)$lon);
-    \Log::debug("uv index", ['data' => $data]);
+    $data = $this->weatherService->getUVIndex((float)$lat, (float)$lon, $timezone);
     if (!$data) {
       return response()->json(['success' => false, 'message' => 'Data indeks UV tidak tersedia'], 404);
     }
