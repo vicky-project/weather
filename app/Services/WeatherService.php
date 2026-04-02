@@ -479,10 +479,10 @@ class WeatherService
         'humidity' => $item['main']['humidity'] ?? 0,
         'icon' => $weather['icon'] ?? null,
         'description' => $weather['description'] ?? null,
-        'pressure' => $item['main']['pressure'],
-        'wind_speed' => $item['wind']['speed'],
-        'clouds' => $item['clouds']['all'],
-        'visibility' => $item['wind']['visibility']
+        'pressure' => $item['main']['pressure'] ?? 0,
+        'wind_speed' => $item['wind']['speed'] ?? 0,
+        'clouds' => $item['clouds']['all'] ?? 0,
+        'visibility' => $item['wind']['visibility'] ?? 0
       ];
       $chartLabels[] = $timeLabel;
       $chartTemps[] = round($temp);
