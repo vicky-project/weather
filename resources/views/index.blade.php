@@ -36,10 +36,26 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Detail Forecast -->
+<div class="modal fade" id="forecastDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color);">
+      <div class="modal-header" style="border-bottom-color: var(--tg-theme-hint-color);">
+        <h5 class="modal-title">Detail Cuaca</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="forecastDetailBody">
+        {{-- Detail akan diisi --}}
+      </div>
+    </div>
+  </div>
+</div>
 @endsection
 
 @push('styles')
 <style>
+  /* (sama seperti sebelumnya) */
   body {
     background-color: var(--tg-theme-bg-color);
     color: var(--tg-theme-text-color);
@@ -118,6 +134,12 @@
     padding: 8px;
     text-align: center;
     min-width: 80px;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+  }
+  .forecast-hour-card:hover {
+    transform: translateY(-3px);
+    background-color: rgba(var(--tg-theme-button-color-rgb), 0.1);
   }
   .forecast-hour-time {
     font-size: 0.8rem;
@@ -162,7 +184,6 @@
 
   // ==================== FETCH ALL WEATHER DATA (ASYNC/AWAIT) ====================
   async function fetchAllWeather(lat, lon, city = null) {
-    // Set loading state dan tampilkan UI loading
     currentState = 'loading';
     buildUI();
 
@@ -205,6 +226,10 @@
       const forecastData = await forecastRes.json();
       if (forecastData.success && forecastData.data) {
         window.forecastData = forecastData.data;
+        // Pastikan data hourly memiliki detail lengkap
+        if (!window.forecastData.hourlyDetails && window.forecastData.hourly) {
+          window.forecastData.hourlyDetails = window.forecastData.hourly; // asumsi sudah detail
+        }
       } else {
         console.warn('Forecast not available:', forecastData.message);
         window.forecastData = null;
@@ -370,12 +395,12 @@
       <div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">${w.current.visibility ? (w.current.visibility/1000).toFixed(1): '-'} km</div><div class="label">Jarak Pandang</div></div></div>
       </div>`;
 
-      // FORECAST SECTION
+      // Forecast section dengan klik
       if (window.forecastData && window.forecastData.hourly && window.forecastData.hourly.length) {
-        html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam Ke Depan</h6>
+        html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam Ke Depan (klik untuk detail)</h6>
         <div class="d-flex flex-nowrap overflow-auto gap-2 pb-2" style="scrollbar-width: thin;">`;
-        window.forecastData.hourly.forEach(item => {
-        html += `<div class="forecast-hour-card">
+        window.forecastData.hourly.forEach((item, idx) => {
+        html += `<div class="forecast-hour-card" data-forecast-index="${idx}" onclick="showForecastDetail(${idx})">
         <div class="forecast-hour-time">${item.time}</div>
         <img src="https://openweathermap.org/img/wn/${item.icon}.png" width="40" height="40" alt="${item.description}">
         <div class="forecast-hour-temp">${item.temp}°C</div>
@@ -404,13 +429,82 @@
     }
   }
 
+  // ==================== FORECAST DETAIL MODAL ====================
+  function showForecastDetail(index) {
+    const item = window.forecastData?.hourly?.[index];
+    if (!item) return;
+
+    const modalBody = document.getElementById('forecastDetailBody');
+    if (!modalBody) return;
+
+    // Gunakan data yang ada, asumsikan item memiliki properti detail
+    // Jika belum, kita bisa simpan data lengkap di window.forecastData.hourlyDetails
+    const details = item.details || item; // fallback
+
+    const html = `
+    <div class="text-center mb-3">
+    <img src="https://openweathermap.org/img/wn/${details.icon}@2x.png" width="80" height="80" alt="${details.description}">
+    <h4>${details.temp}°C</h4>
+    <p class="text-muted">${details.description}</p>
+    </div>
+    <div class="row g-2">
+    <div class="col-6">
+    <div class="detail-item">
+    <i class="bi bi-thermometer-half"></i>
+    <div class="value">${details.feels_like ?? '-'}°C</div>
+    <div class="label">Terasa seperti</div>
+    </div>
+    </div>
+    <div class="col-6">
+    <div class="detail-item">
+    <i class="bi bi-droplet"></i>
+    <div class="value">${details.humidity ?? '-'}%</div>
+    <div class="label">Kelembaban</div>
+    </div>
+    </div>
+    <div class="col-6">
+    <div class="detail-item">
+    <i class="bi bi-speedometer2"></i>
+    <div class="value">${details.pressure ?? '-'} hPa</div>
+    <div class="label">Tekanan</div>
+    </div>
+    </div>
+    <div class="col-6">
+    <div class="detail-item">
+    <i class="bi bi-wind"></i>
+    <div class="value">${details.wind_speed ?? '-'} m/s</div>
+    <div class="label">Angin</div>
+    </div>
+    </div>
+    <div class="col-6">
+    <div class="detail-item">
+    <i class="bi bi-cloud"></i>
+    <div class="value">${details.clouds ?? '-'}%</div>
+    <div class="label">Awan</div>
+    </div>
+    </div>
+    <div class="col-6">
+    <div class="detail-item">
+    <i class="bi bi-eye"></i>
+    <div class="value">${details.visibility ? (details.visibility/1000).toFixed(1): '-'} km</div>
+    <div class="label">Jarak Pandang</div>
+    </div>
+    </div>
+    </div>
+    `;
+
+    modalBody.innerHTML = html;
+    const modal = new bootstrap.Modal(document.getElementById('forecastDetailModal'));
+    modal.show();
+  }
+
+  // ==================== CHART DRAWING (FIXED) ====================
   function drawChart(chartData) {
     const canvas = document.getElementById('tempChart');
     if (!canvas) {
       console.warn('Canvas element not found');
       return;
     }
-    // Hancurkan chart sebelumnya dengan aman
     if (window.tempChart) {
       try {
         if (typeof window.tempChart.destroy === 'function') {
@@ -421,7 +515,6 @@
       }
       window.tempChart = null;
     }
-    // Buat chart baru
     window.tempChart = new Chart(canvas, {
     type: 'line',
     data: {
