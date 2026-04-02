@@ -90,6 +90,7 @@ class WeatherController extends Controller
     }
 
     $data = $this->weatherService->getHourlyForecast($location);
+    \Log::debug("Forecast data.", ["forecast" => $data]);
     if (!$data) {
       return response()->json(['success' => false, 'message' => 'Data forecast tidak tersedia'], 404);
     }
