@@ -601,25 +601,26 @@ class WeatherService
     }
 
     try {
-      $response = Http::get("https://api.openweathermap.org/data/3.0/onecall", [
-        'lat' => $lat,
-        'lon' => $lon,
-        'exclude' => 'minutely,hourly,daily,alerts',
-        'appid' => $this->apiKey,
+      // Menggunakan Open-Meteo API (gratis, tanpa API key)
+      $url = "https://api.open-meteo.com/v1/forecast";
+      $response = Http::get($url, [
+        'latitude' => $lat,
+        'longitude' => $lon,
+        'daily' => 'uv_index_max',
+        'timezone' => 'auto',
       ]);
 
       if (!$response->successful()) {
-        Log::warning('OneCall API error for UV', ['status' => $response->status()]);
+        Log::warning('Open-Meteo API error for UV', ['status' => $response->status()]);
         return null;
       }
 
       $data = $response->json();
-      \Log::debug("result uv index", ['data' => $data]);
-      if (empty($data) || !isset($data['current']['uvi'])) {
+      if (empty($data) || !isset($data['daily']['uv_index_max'][0])) {
         return null;
       }
 
-      $uvi = $data['current']['uvi'];
+      $uvi = $data['daily']['uv_index_max'][0]; // Nilai UV maksimum hari ini
       $result = [
         'uvi' => $uvi,
         'level' => $this->getUvLevel($uvi),
