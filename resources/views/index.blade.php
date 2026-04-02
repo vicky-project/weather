@@ -398,7 +398,8 @@
     const w = window.weatherData;
     if (!w) return '';
 
-    let summary = '';
+    let parts = [];
+
     const temp = w.current.temperature;
     const feelsLike = w.current.feels_like;
     const desc = w.weather.description.toLowerCase();
@@ -408,22 +409,39 @@
 
     // Kondisi cuaca
     if (desc.includes('hujan') || desc.includes('rain')) {
-      summary += `Saat ini ${desc}. `;
+      parts.push(`Saat ini <strong>${desc}</strong>.`);
     } else if (desc.includes('cerah') || desc.includes('clear')) {
-      summary += `Cuaca cerah. `;
+      parts.push(`Cuaca <strong>cerah</strong>.`);
     } else if (desc.includes('awan') || desc.includes('clouds')) {
-      summary += `Cuaca berawan. `;
+      parts.push(`Cuaca <strong>berawan</strong>.`);
     } else {
-      summary += `Cuaca ${desc}. `;
+      parts.push(`Cuaca ${desc}.`);
     }
 
-    // Suhu dan kelembaban
-    summary += `Suhu ${temp}°C, terasa ${feelsLike}°C. `;
-    summary += `Kelembaban ${humidity}%, angin ${windKmh} km/j. `;
+    // Suhu dengan penekanan ekstrem
+    let tempStr = `${temp}°C`;
+    if (temp >= 32) {
+      tempStr = `<strong style="color: #dc3545;">${temp}°C</strong> (panas)`;
+    } else if (temp <= 25) {
+      tempStr = `<strong style="color: #198754;">${temp}°C</strong> (sejuk)`;
+    } else {
+      tempStr = `<strong>${temp}°C</strong>`;
+    }
+    parts.push(`Suhu ${tempStr}, terasa <strong>${feelsLike}°C</strong>.`);
 
-    // Prakiraan hujan terdekat (dari forecast per jam)
+    // Kelembaban dan angin
+    let humidStr = `${humidity}%`;
+    if (humidity > 80) {
+      humidStr = `<strong style="color: #0d6efd;">${humidity}%</strong> (lembab)`;
+    }
+    let windStr = `${windKmh} km/j`;
+    if (windKmh > 20) {
+      windStr = `<strong style="color: #dc3545;">${windKmh} km/j</strong> (kencang)`;
+    }
+    parts.push(`Kelembaban ${humidStr}, angin ${windStr}.`);
+
+    // Prakiraan hujan
     if (window.forecastData && window.forecastData.hourly && window.forecastData.hourly.length > 0) {
-      // Cek 3 jam ke depan (2 item pertama karena interval 3 jam)
       const nextHours = window.forecastData.hourly.slice(0, 2);
       let willRain = false;
       for (let i = 0; i < nextHours.length; i++) {
@@ -434,7 +452,7 @@
         }
       }
       if (willRain) {
-        summary += `Hujan diperkirakan dalam beberapa jam ke depan. `;
+        parts.push(`<strong style="color: #dc3545;">Hujan diperkirakan dalam beberapa jam ke depan.</strong>`);
       }
     }
 
@@ -442,22 +460,24 @@
     if (window.uvData) {
       const uv = window.uvData.uvi;
       if (uv >= 8) {
-        summary += `Indeks UV sangat tinggi (${uv}). Hindari paparan sinar matahari langsung. `;
+        parts.push(`<strong style="color: #dc3545;">Indeks UV ${uv} (Ekstrem). Hindari paparan sinar matahari langsung!</strong>`);
       } else if (uv >= 6) {
-        summary += `Indeks UV tinggi (${uv}). Gunakan pelindung. `;
+        parts.push(`<strong style="color: #fd7e14;">Indeks UV ${uv} (Tinggi). Gunakan pelindung.</strong>`);
       } else if (uv >= 3) {
-        summary += `Indeks UV sedang (${uv}). Gunakan tabir surya jika beraktivitas lama. `;
+        parts.push(`<strong style="color: #ffc107;">Indeks UV ${uv} (Sedang). Gunakan tabir surya jika beraktivitas lama.</strong>`);
+      } else {
+        parts.push(`Indeks UV ${uv}.`);
       }
     }
 
-    // Saran suhu ekstrem
+    // Saran tambahan
     if (temp > 32) {
-      summary += 'Cuaca panas, perbanyak minum air putih.';
+      parts.push('<strong>Perbanyak minum air putih.</strong>');
     } else if (temp < 25) {
-      summary += 'Cuaca sejuk, nyaman untuk beraktivitas.';
+      parts.push('Cuaca sejuk, nyaman untuk beraktivitas.');
     }
 
-    return summary;
+    return parts.join(' ');
   }
 
   // ==================== UI RENDERING ====================
