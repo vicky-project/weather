@@ -18,8 +18,10 @@ class WeatherService
 
   public function __construct() {
     $this->apiKey = config('weather.openweather.api_key');
-    $this->weatherUrl = config("weather.openweather.base_url") . "/weather";
-    $this->forecastUrl = config("weather.openweather.base_url") . "/forecast";
+    $this->weatherUrl = config("weather.openweather.base_url") . "/2.5/weather";
+    $this->forecastUrl = config("weather.openweather.base_url") . "/2.5/forecast";
+    $this->aqiUrl = config("weather.openweather.base_url") . "/2.5/air_pollution";
+    $this->uvUrl = config("weather.openweather.base_url") . "/3.0/onecall";
   }
 
   /**
@@ -362,7 +364,8 @@ class WeatherService
     } catch (Throwable $e) {
       Log::error('Gagal mengambil data forecast per jam', [
         'location' => $location,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
       ]);
     }
     return null;
@@ -519,8 +522,7 @@ class WeatherService
     }
 
     try {
-      $url = "https://api.openweathermap.org/data/2.5/air_pollution";
-      $response = Http::get($url, [
+      $response = Http::get($this->aqiUrl, [
         'lat' => $lat,
         'lon' => $lon,
         'appid' => $this->apiKey,
@@ -560,7 +562,8 @@ class WeatherService
       Log::error('Gagal mengambil data kualitas udara', [
         'lat' => $lat,
         'lon' => $lon,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
       ]);
       return null;
     }
@@ -588,6 +591,84 @@ class WeatherService
     case 5: return 'Tetap di dalam ruangan. Gunakan pembersih udara.';
     default: return '';
     }
+  }
+
+  /**
+  * Mendapatkan indeks UV berdasarkan koordinat
+  */
+  public function getUVIndex(float $lat, float $lon): ?array
+  {
+    $cacheKey = 'uv_index_' . md5("{$lat},{$lon}");
+    $cached = Cache::get($cacheKey);
+    if ($cached !== null) {
+      Log::debug("UV index cache hit", ["key" => $cacheKey]);
+      return $cached;
+    }
+
+    try {
+      $response = Http::get($this->uvUrl, [
+        'lat' => $lat,
+        'lon' => $lon,
+        'exclude' => 'minutely,hourly,daily,alerts',
+        'appid' => $this->apiKey,
+      ]);
+
+      if (!$response->successful()) {
+        Log::warning('OneCall API error for UV', ['status' => $response->status()]);
+        return null;
+      }
+
+      $data = $response->json();
+      if (empty($data) || !isset($data['current']['uvi'])) {
+        return null;
+      }
+
+      $uvi = $data['current']['uvi'];
+      $result = [
+        'uvi' => $uvi,
+        'level' => $this->getUvLevel($uvi),
+        'recommendation' => $this->getUvRecommendation($uvi),
+        'color' => $this->getUvColor($uvi),
+      ];
+
+      Cache::put($cacheKey, $result, $this->cacheDuration);
+      return $result;
+    } catch (Throwable $e) {
+      Log::error('Gagal mengambil indeks UV', [
+        'lat' => $lat,
+        'lon' => $lon,
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+      ]);
+      return null;
+    }
+  }
+
+  protected function getUvLevel($uvi): string
+  {
+    if ($uvi <= 2) return 'Rendah';
+    if ($uvi <= 5) return 'Sedang';
+    if ($uvi <= 7) return 'Tinggi';
+    if ($uvi <= 10) return 'Sangat Tinggi';
+    return 'Ekstrem';
+  }
+
+  protected function getUvRecommendation($uvi): string
+  {
+    if ($uvi <= 2) return 'Aman beraktivitas di luar.';
+    if ($uvi <= 5) return 'Gunakan tabir surya dan topi.';
+    if ($uvi <= 7) return 'Hindari matahari langsung (10-16). Gunakan pelindung.';
+    if ($uvi <= 10) return 'Bahaya! Gunakan tabir surya SPF 30+, kacamata hitam, dan pakaian tertutup.';
+    return 'Sangat berbahaya! Jangan keluar rumah jika tidak perlu.';
+  }
+
+  protected function getUvColor($uvi): string
+  {
+    if ($uvi <= 2) return '#198754'; // hijau
+    if ($uvi <= 5) return '#ffc107'; // kuning
+    if ($uvi <= 7) return '#fd7e14'; // oranye
+    if ($uvi <= 10) return '#dc3545'; // merah
+    return '#6f42c1'; // ungu untuk ekstrem
   }
 
   /**

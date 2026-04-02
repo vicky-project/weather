@@ -113,6 +113,21 @@ class WeatherController extends Controller
     return response()->json(['success' => true, 'data' => $data]);
   }
 
+  public function getUVIndex(Request $request) {
+    $lat = $request->input('latitude');
+    $lon = $request->input('longitude');
+    if (!$lat || !$lon) {
+      return response()->json(['success' => false, 'message' => 'Koordinat diperlukan'], 400);
+    }
+
+    $data = $this->weatherService->getUVIndex((float)$lat, (float)$lon);
+    if (!$data) {
+      return response()->json(['success' => false, 'message' => 'Data indeks UV tidak tersedia'], 404);
+    }
+
+    return response()->json(['success' => true, 'data' => $data]);
+  }
+
   /**
   * Simpan pengaturan cuaca pengguna.
   */

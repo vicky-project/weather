@@ -213,7 +213,6 @@
       }
       window.weatherData = currentData.data;
 
-      // Setelah mendapatkan currentData dan window.weatherData
       if (window.weatherData.location.latitude && window.weatherData.location.longitude) {
         const aqiRes = await fetch('{{ secure_url(config("app.url")) }}/api/weather/air-quality', {
           method: 'POST',
@@ -232,6 +231,25 @@
           window.aqiData = aqiData.data;
         } else {
           window.aqiData = null;
+        }
+
+        const uvRes = await fetch('{{ secure_url(config("app.url")) }}/api/weather/uv-index', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Telegram-Init-Data': initData
+          },
+          body: JSON.stringify({
+          latitude: window.weatherData.location.latitude,
+          longitude: window.weatherData.location.longitude
+          })
+        });
+        const uvData = await uvRes.json();
+        if (uvData.success && uvData.data) {
+          window.uvData = uvData.data;
+        } else {
+          window.uvData = null;
         }
       }
 
@@ -442,6 +460,18 @@
         <div class="col-4"><span class="small">PM10: ${aqi.components.pm10} μg/m³</span></div>
         <div class="col-4"><span class="small">O3: ${aqi.components.o3} μg/m³</span></div>
         </div>
+        </div>
+        </div>`;
+      }
+
+      // UV Index Section
+      if (window.uvData) {
+        const uv = window.uvData;
+        html += `<div class="mb-3">
+        <h6><i class="bi bi-brightness-high me-2"></i>Indeks UV</h6>
+        <div class="detail-item" style="background-color: rgba(var(--tg-theme-button-color-rgb), 0.05);">
+        <div class="value" style="color: ${uv.color};">${uv.uvi} - ${uv.level}</div>
+        <div class="small text-muted mt-1">${uv.recommendation}</div>
         </div>
         </div>`;
       }
