@@ -1,3 +1,4 @@
+{{-- resources/views/weather/index.blade.php --}}
 @extends('coreui::layouts.mini-app')
 @section('title', 'Informasi Cuaca')
 
@@ -112,6 +113,27 @@
   .detail-item .label {
     font-size: 0.8rem;
     color: var(--tg-theme-hint-color);
+  }
+  .forecast-card {
+    background-color: var(--tg-theme-section-bg-color);
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+    transition: transform 0.2s;
+  }
+  .forecast-card:hover {
+    transform: translateY(-2px);
+  }
+  .forecast-date {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .forecast-temp {
+    font-size: 1.1rem;
+    font-weight: 500;
+  }
+  .forecast-icon {
+    font-size: 1.8rem;
   }
   .timeout-option {
     margin-top: 1rem;
@@ -292,6 +314,24 @@
       </div>
       </div>
 
+      <!-- Forecast Section -->
+      ${window.forecastData && window.forecastData.list ? `
+      <hr>
+      <h6 class="mt-3 mb-3"><i class="bi bi-calendar-week me-2"></i>Ramalan Cuaca 5 Hari</h6>
+      <div class="row g-2 mb-4">
+      ${window.forecastData.list.map(day => `
+      <div class="col-6 col-md-2">
+      <div class="forecast-card">
+      <div class="forecast-date">${day.date}</div>
+      <img src="https://openweathermap.org/img/wn/${day.weather.icon}.png" alt="${day.weather.description}" width="40" height="40">
+      <div class="forecast-temp">${day.temp.day}°C</div>
+      <div class="small text-muted">${day.weather.description}</div>
+      </div>
+      </div>
+      `).join('')}
+      </div>
+      `: ''}
+
       <div class="text-muted small text-center mb-3">
       <i class="bi bi-clock me-1"></i>Diperbarui: ${new Date(w.updated_at).toLocaleTimeString('id-ID')}
       </div>
@@ -442,6 +482,7 @@
     }
   };
 
+  // Fetch both current and forecast
   function fetchWeather(lat, lon, city = null) {
     currentState = 'loading';
     buildUI();
@@ -455,6 +496,7 @@
       body.longitude = lon;
     }
 
+    // First fetch current weather
     fetch('{{ secure_url(config("app.url")) }}/api/weather/current', {
       method: 'POST',
       headers: {
@@ -468,12 +510,13 @@
     .then(data => {
     if (data.success) {
     window.weatherData = data.data;
-    currentState = 'loaded';
-    buildUI();
+    // Now fetch forecast
+    return fetchForecast(lat, lon, city, initData);
     } else {
     currentState = 'error';
     errorMessage = data.message || 'Gagal memuat data cuaca.';
     buildUI();
+    return null;
     }
     })
     .catch(err => {
@@ -484,10 +527,46 @@
     });
   }
 
+  function fetchForecast(lat, lon, city, initData) {
+    const forecastBody = {};
+    if (city) {
+      forecastBody.city = city;
+    } else {
+      forecastBody.latitude = lat;
+      forecastBody.longitude = lon;
+    }
+
+    fetch('{{ secure_url(config("app.url")) }}/api/weather/forecast', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': initData
+      },
+      body: JSON.stringify(forecastBody)
+    })
+    .then(response => response.json())
+    .then(data => {
+    if (data.success && data.data) {
+    window.forecastData = data.data;
+    } else {
+    window.forecastData = null; // forecast not available
+    }
+    currentState = 'loaded';
+    buildUI();
+    })
+    .catch(err => {
+    console.error('Forecast fetch error:', err);
+    window.forecastData = null;
+    currentState = 'loaded';
+    buildUI();
+    });
+  }
+
   window.refreshWeather = async function() {
     if (window.weatherData) {
       const loc = window.weatherData.location;
-      usingDefault = false; // setelah refresh, kita anggap bukan default lagi
+      usingDefault = false; // setelah refresh, anggap bukan default lagi
       try {
         const initData = window.Telegram?.WebApp?.initData || '';
 

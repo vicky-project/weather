@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use Carbon\Carbon;
 
 class WeatherService
 {
@@ -18,6 +19,7 @@ class WeatherService
   public function __construct() {
     $this->apiKey = config('weather.openweather.api_key');
     $this->weatherUrl = config("weather.openweather.base_url") . "/weather";
+    $this->forecastUrl = config("weather.openweather.base_url") . "/forecast";
   }
 
   /**
@@ -333,6 +335,163 @@ class WeatherService
           $sys->sunset + $rawData->timezone) : null,
       ],
       'updated_at' => now()->toIso8601String(),
+    ];
+  }
+
+  /**
+  * Mendapatkan data forecast 5 hari.
+  */
+  public function getForecast($location): ?array
+  {
+    $cacheKey = 'forecast_' . $this->generateCacheKey($location);
+    $cached = Cache::get($cacheKey);
+    if ($cached !== null) {
+      Log::debug("Forecast cache hit", ["key" => $cacheKey]);
+      return $cached;
+    }
+
+    try {
+      $forecastData = $this->fetchForecastFromApi($location);
+      if ($forecastData) {
+        Cache::put($cacheKey, $forecastData, $this->cacheDuration);
+        return $forecastData;
+      }
+    } catch (Throwable $e) {
+      Log::error('Gagal mengambil data forecast', [
+        'location' => $location,
+        'error' => $e->getMessage()
+      ]);
+    }
+    return null;
+  }
+
+  protected function fetchForecastFromApi($location): ?array
+  {
+    if (isset($location['latitude']) && isset($location['longitude'])) {
+      return $this->getForecastByCoordinates($location['latitude'], $location['longitude']);
+    }
+
+    if (isset($location['city'])) {
+      return $this->getForecastByCityName($location['city']);
+    }
+
+    return null;
+  }
+
+  protected function getForecastByCoordinates(float $lat, float $lon): ?array
+  {
+    $url = 'https://api.openweathermap.org/data/2.5/forecast';
+    try {
+      $response = Http::get($this->forecastUrl, [
+        'lat' => $lat,
+        'lon' => $lon,
+        'units' => 'metric',
+        'appid' => $this->apiKey,
+      ]);
+
+      if (!$response->successful()) {
+        Log::warning('Forecast API error', [
+          'status' => $response->status(),
+          'body' => $response->body()
+        ]);
+        return null;
+      }
+
+      $data = $response->json();
+      if (empty($data) || ($data['cod'] ?? '200') != '200') {
+        return null;
+      }
+
+      return $this->formatForecastData($data);
+    } catch (Throwable $e) {
+      Log::warning('Gagal get forecast by coordinates', [
+        'lat' => $lat,
+        'lon' => $lon,
+        'error' => $e->getMessage()
+      ]);
+      return null;
+    }
+  }
+
+  protected function getForecastByCityName(string $city): ?array
+  {
+    // Coba langsung dengan nama kota
+    $url = 'https://api.openweathermap.org/data/2.5/forecast';
+    try {
+      $response = Http::get($this->forecastUrl, [
+        'q' => $city,
+        'units' => 'metric',
+        'appid' => $this->apiKey,
+      ]);
+
+      if ($response->successful()) {
+        $data = $response->json();
+        if (($data['cod'] ?? '200') == '200') {
+          return $this->formatForecastData($data);
+        }
+      }
+    } catch (Throwable $e) {
+      Log::debug('Forecast langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
+    }
+
+    // Fallback: geocoding
+    $coordinates = $this->geocodeCity($city);
+    if (!$coordinates) {
+      return null;
+    }
+
+    return $this->getForecastByCoordinates($coordinates['lat'], $coordinates['lon']);
+  }
+
+  protected function formatForecastData(array $data): array
+  {
+    $list = $data['list'] ?? [];
+    if (empty($list)) {
+      return ['list' => []];
+    }
+
+    $grouped = [];
+    foreach ($list as $item) {
+      $dt = Carbon::createFromTimestamp($item['dt']);
+      $dateKey = $dt->toDateString();
+      if (!isset($grouped[$dateKey])) {
+        $grouped[$dateKey] = [];
+      }
+      $grouped[$dateKey][] = $item;
+    }
+
+    $daily = [];
+    foreach ($grouped as $dateKey => $items) {
+      // Ambil data yang paling mendekati jam 12:00 siang
+      $best = null;
+      $minDiff = 24 * 3600;
+      foreach ($items as $item) {
+        $itemDt = Carbon::createFromTimestamp($item['dt']);
+        $diff = abs($itemDt->hour - 12);
+        if ($diff < $minDiff) {
+          $minDiff = $diff;
+          $best = $item;
+        }
+      }
+      if ($best) {
+        $weather = $best['weather'][0] ?? [];
+        $temp = $best['main'] ?? [];
+        $daily[] = [
+          'date' => Carbon::createFromTimestamp($best['dt'])->format('d/m'),
+          'temp' => [
+            'day' => round($temp['temp'] ?? 0),
+          ],
+          'weather' => [
+            'main' => $weather['main'] ?? null,
+            'description' => $weather['description'] ?? null,
+            'icon' => $weather['icon'] ?? null,
+          ],
+        ];
+      }
+    }
+
+    return [
+      'list' => array_slice($daily, 0, 5) // maksimal 5 hari
     ];
   }
 
