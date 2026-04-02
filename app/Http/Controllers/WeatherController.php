@@ -121,6 +121,7 @@ class WeatherController extends Controller
     }
 
     $data = $this->weatherService->getUVIndex((float)$lat, (float)$lon);
+    \Log::debug("uv index", ['data' => $data]);
     if (!$data) {
       return response()->json(['success' => false, 'message' => 'Data indeks UV tidak tersedia'], 404);
     }
