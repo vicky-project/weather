@@ -160,8 +160,12 @@
     }
   }
 
-  // ==================== LOCATION & WEATHER FETCH (ASYNC/AWAIT) ====================
+  // ==================== FETCH ALL WEATHER DATA (ASYNC/AWAIT) ====================
   async function fetchAllWeather(lat, lon, city = null) {
+    // Set loading state dan tampilkan UI loading
+    currentState = 'loading';
+    buildUI();
+
     try {
       const initData = window.Telegram?.WebApp?.initData || '';
       const body = {};
@@ -172,7 +176,7 @@
         body.longitude = lon;
       }
 
-      // Ambil current weather
+      // Current weather
       const currentRes = await fetch('{{ secure_url(config("app.url")) }}/api/weather/current', {
         method: 'POST',
         headers: {
@@ -188,7 +192,7 @@
       }
       window.weatherData = currentData.data;
 
-      // Ambil hourly forecast
+      // Hourly forecast
       const forecastRes = await fetch('{{ secure_url(config("app.url")) }}/api/weather/hourly-forecast', {
         method: 'POST',
         headers: {
@@ -202,14 +206,14 @@
       if (forecastData.success && forecastData.data) {
         window.forecastData = forecastData.data;
       } else {
-        console.warn('Forecast tidak tersedia:', forecastData.message);
+        console.warn('Forecast not available:', forecastData.message);
         window.forecastData = null;
       }
 
       currentState = 'loaded';
       buildUI();
     } catch (err) {
-      console.error('Error fetching weather:', err);
+      console.error('Fetch error:', err);
       currentState = 'error';
       errorMessage = err.message || 'Gagal memuat data cuaca';
       buildUI();
@@ -294,15 +298,19 @@
     }
   }
 
-  function refreshWeather() {
+  window.refreshWeather = async function() {
     if (window.weatherData) {
       const loc = window.weatherData.location;
       usingDefault = false;
-      fetchAllWeather(loc.latitude, loc.longitude);
+      // Nonaktifkan tombol refresh sementara (opsional)
+      const refreshBtn = document.querySelector('#weatherApp .btn-outline-primary');
+      if (refreshBtn) refreshBtn.disabled = true;
+      await fetchAllWeather(loc.latitude, loc.longitude);
+      if (refreshBtn) refreshBtn.disabled = false;
     } else {
       initWeather();
     }
-  }
+  };
 
   function useDefaultLocation() {
     if (hasDefaultLocation && defaultLocation) {
