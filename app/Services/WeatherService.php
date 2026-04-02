@@ -14,6 +14,9 @@ class WeatherService
   protected int $cacheDuration = 900; // 30 menit
   protected string $geocodingUrl = 'http://api.openweathermap.org/geo/1.0/direct';
   protected string $weatherUrl;
+  protected string $forcastUrl;
+  protected string $aqiUrl;
+  protected string $uviUrl;
   protected string $apiKey;
 
   public function __construct() {
@@ -21,7 +24,7 @@ class WeatherService
     $this->weatherUrl = config("weather.openweather.base_url") . "/2.5/weather";
     $this->forecastUrl = config("weather.openweather.base_url") . "/2.5/forecast";
     $this->aqiUrl = config("weather.openweather.base_url") . "/2.5/air_pollution";
-    $this->uvUrl = config("weather.openweather.base_url") . "/3.0/onecall";
+    $this->uviUrl = config("weather.openweather.base_url") . "/3.0/onecall";
   }
 
   /**
@@ -606,7 +609,7 @@ class WeatherService
     }
 
     try {
-      $response = Http::get($this->uvUrl, [
+      $response = Http::get($this->uviUrl, [
         'lat' => $lat,
         'lon' => $lon,
         'exclude' => 'minutely,hourly,daily,alerts',
