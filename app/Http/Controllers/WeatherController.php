@@ -69,6 +69,7 @@ class WeatherController extends Controller
 
   public function getHourlyForecast(Request $request) {
     $telegramUser = $request->get('telegram_user');
+    $timezoneOffset = (int) $request->input('timezone_offset', 0);
 
     $location = null;
     if ($telegramUser && $this->userHasDefaultLocation($telegramUser)) {
@@ -89,7 +90,7 @@ class WeatherController extends Controller
       return response()->json(['success' => false, 'message' => 'Lokasi tidak ditemukan'], 400);
     }
 
-    $data = $this->weatherService->getHourlyForecast($location);
+    $data = $this->weatherService->getHourlyForecast($location, $timezoneOffset);
     if (!$data) {
       return response()->json(['success' => false, 'message' => 'Data forecast tidak tersedia'], 404);
     }

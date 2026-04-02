@@ -11,8 +11,6 @@ use Carbon\Carbon;
 
 class WeatherService
 {
-  protected $timezone;
-
   protected int $cacheDuration = 900; // 30 menit
   protected string $geocodingUrl = 'http://api.openweathermap.org/geo/1.0/direct';
   protected string $weatherUrl;
@@ -308,8 +306,7 @@ class WeatherService
     $clouds = $rawData->clouds ?? null;
     $sys = $rawData->sys ?? null;
     $visibility = $rawData->visibility ?? null;
-    \Log::debug("raw data",
-      ["data" => $rawData]);
+    $timezoneOffset = $rawData->timezone ?? 0;
 
     return [
       'location' => [
@@ -317,6 +314,7 @@ class WeatherService
         'country' => $sys->country ?? null,
         'latitude' => $coord->lat ?? null,
         'longitude' => $coord->lon ?? null,
+        'timezone_offset' => $timezoneOffset
       ],
       'current' => [
         'temperature' => round($main->temp ?? 0),
@@ -345,9 +343,10 @@ class WeatherService
   /**
   * Mendapatkan data forecast per jam (24 jam ke depan)
   */
-  public function getHourlyForecast($location): ?array
+  public function getHourlyForecast($location,
+    int $timezoneOffset = 0): ?array
   {
-    $cacheKey = 'hourly_forecast_' . $this->generateCacheKey($location);
+    $cacheKey = 'hourly_forecast_' . $this->generateCacheKey($location) . '_offset_'. $timezoneOffset;
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
       Log::debug("Hourly forecast cache hit", ["key" => $cacheKey]);
@@ -355,7 +354,7 @@ class WeatherService
     }
 
     try {
-      $forecastData = $this->fetchHourlyForecastFromApi($location);
+      $forecastData = $this->fetchHourlyForecastFromApi($location, $timezoneOffset);
       if ($forecastData) {
         Cache::put($cacheKey, $forecastData, $this->cacheDuration);
         return $forecastData;
@@ -369,20 +368,21 @@ class WeatherService
     return null;
   }
 
-  protected function fetchHourlyForecastFromApi($location): ?array
+  protected function fetchHourlyForecastFromApi($location, int $timezoneOffset = 0): ?array
   {
     if (isset($location['latitude']) && isset($location['longitude'])) {
-      return $this->getForecastByCoordinates($location['latitude'], $location['longitude']);
+      return $this->getForecastByCoordinates($location['latitude'], $location['longitude'],
+        $timezoneOffset);
     }
 
     if (isset($location['city'])) {
-      return $this->getForecastByCityName($location['city']);
+      return $this->getForecastByCityName($location['city'], $timezoneOffset);
     }
 
     return null;
   }
 
-  protected function getForecastByCoordinates(float $lat, float $lon): ?array
+  protected function getForecastByCoordinates(float $lat, float $lon, int $timezoneOffset = 0): ?array
   {
     try {
       $response = Http::get($this->forecastUrl, [
@@ -405,7 +405,7 @@ class WeatherService
         return null;
       }
 
-      return $this->formatHourlyForecastData($data);
+      return $this->formatHourlyForecastData($data, $timezoneOffset);
     } catch (Throwable $e) {
       Log::warning('Gagal get forecast by coordinates', [
         'lat' => $lat,
@@ -416,7 +416,7 @@ class WeatherService
     }
   }
 
-  protected function getForecastByCityName(string $city): ?array
+  protected function getForecastByCityName(string $city, int $timezoneOffset = 0): ?array
   {
     try {
       $response = Http::get($this->forecastUrl, [
@@ -428,7 +428,7 @@ class WeatherService
       if ($response->successful()) {
         $data = $response->json();
         if (($data['cod'] ?? '200') == '200') {
-          return $this->formatHourlyForecastData($data);
+          return $this->formatHourlyForecastData($data, $timezoneOffset);
         }
       }
     } catch (Throwable $e) {
@@ -441,10 +441,10 @@ class WeatherService
       return null;
     }
 
-    return $this->getForecastByCoordinates($coordinates['lat'], $coordinates['lon']);
+    return $this->getForecastByCoordinates($coordinates['lat'], $coordinates['lon'], $timezoneOffset);
   }
 
-  protected function formatHourlyForecastData(array $data): array
+  protected function formatHourlyForecastData(array $data, int $timezoneOffset = 0): array
   {
     $list = $data['list'] ?? [];
     if (empty($list)) {
@@ -459,18 +459,22 @@ class WeatherService
 
     // Ambil 8 data pertama (24 jam ke depan, interval 3 jam)
     $limit = 8;
-    $now = Carbon::now(config('app.timezone'));
+    $now = Carbon::now()->addSeconds($timezoneOffset);
     $filtered = [];
     foreach ($list as $item) {
-      $dt = Carbon::createFromTimestamp($item['dt']);
+      $dt = Carbon::createFromTimestamp($item['dt'] + $timezoneOffset);
       if ($dt->greaterThanOrEqualTo($now)) {
         $filtered[] = $item;
         if (count($filtered) >= $limit) break;
       }
     }
 
+    if (empty($filtered)) {
+      $filtered = array_slice($list, 0, $limit);
+    }
+
     foreach ($filtered as $item) {
-      $dt = Carbon::createFromTimestamp($item['dt']);
+      $dt = Carbon::createFromTimestamp($item['dt'] + $timezoneOffset);
       $timeLabel = $dt->format('H:i');
       $weather = $item['weather'][0] ?? [];
       $temp = $item['main']['temp'] ?? 0;

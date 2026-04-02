@@ -212,6 +212,7 @@
         throw new Error(currentData.message || 'Gagal memuat cuaca');
       }
       window.weatherData = currentData.data;
+      const timezoneOffset = window.weatherData.location.timezone_offset || 0;
 
       // Hourly forecast
       const forecastRes = await fetch('{{ secure_url(config("app.url")) }}/api/weather/hourly-forecast', {
@@ -221,7 +222,10 @@
           'Content-Type': 'application/json',
           'X-Telegram-Init-Data': initData
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+        ...body,
+        timezone_offset: timezoneOffset
+        })
       });
       const forecastData = await forecastRes.json();
       if (forecastData.success && forecastData.data) {
@@ -397,7 +401,7 @@
 
       // Forecast section dengan klik
       if (window.forecastData && window.forecastData.hourly && window.forecastData.hourly.length) {
-        html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam Ke Depan (klik untuk detail)</h6>
+        html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam Ke Depan</h6>
         <div class="d-flex flex-nowrap overflow-auto gap-2 pb-2" style="scrollbar-width: thin;">`;
         window.forecastData.hourly.forEach((item, idx) => {
         html += `<div class="forecast-hour-card" data-forecast-index="${idx}" onclick="showForecastDetail(${idx})">
