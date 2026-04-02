@@ -393,6 +393,7 @@
       </div>`;
 
       // ========== FORECAST SECTION ==========
+      alert(JSON.stringify(window.forecastData));
       if (window.forecastData && window.forecastData.hourly && window.forecastData.hourly.length) {
         html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam Ke Depan</h6>
         <div class="d-flex flex-nowrap overflow-auto gap-2 pb-2" style="scrollbar-width: thin;">`;
