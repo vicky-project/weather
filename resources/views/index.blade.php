@@ -397,10 +397,24 @@
   }
 
   function drawChart(chartData) {
-    const ctx = document.getElementById('tempChart');
-    if (!ctx) return;
-    if (window.tempChart) window.tempChart.destroy();
-    window.tempChart = new Chart(ctx, {
+    const canvas = document.getElementById('tempChart');
+    if (!canvas) {
+      console.warn('Canvas element not found');
+      return;
+    }
+    // Hancurkan chart sebelumnya dengan aman
+    if (window.tempChart) {
+      try {
+        if (typeof window.tempChart.destroy === 'function') {
+          window.tempChart.destroy();
+        }
+      } catch (e) {
+        console.warn('Error destroying previous chart:', e);
+      }
+      window.tempChart = null;
+    }
+    // Buat chart baru
+    window.tempChart = new Chart(canvas, {
     type: 'line',
     data: {
     labels: chartData.labels,
@@ -420,7 +434,10 @@
     options: {
     responsive: true,
     maintainAspectRatio: true,
-    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw}°C` } } },
+    plugins: {
+    legend: { display: false },
+    tooltip: { callbacks: { label: (ctx) => `${ctx.raw}°C` } }
+    },
     scales: {
     y: { beginAtZero: false, title: { display: true, text: 'Suhu (°C)' } },
     x: { title: { display: true, text: 'Waktu' } }
