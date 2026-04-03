@@ -531,6 +531,7 @@
       <div class="col-4"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${w.current.humidity}%</div><div class="label">Kelembaban</div></div></div>
       <div class="col-4">
       <div class="detail-item">
+      <i class="bi bi-wind"></i>
       <div class="value">${(w.current.wind_speed * 3.6).toFixed(1)} km/j</div>
       <div class="label">
       ${w.current.wind_deg !== undefined && w.current.wind_deg !== null ?
