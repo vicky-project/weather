@@ -394,9 +394,9 @@
   }
 
   // ==================== RINGKASAN LISAN ====================
-  function generateSummary() {
+  function generateSummaryParts() {
     const w = window.weatherData;
-    if (!w) return '';
+    if (!w) return [];
 
     let parts = [];
 
@@ -418,7 +418,7 @@
       parts.push(`Cuaca ${desc}.`);
     }
 
-    // Suhu dengan penekanan ekstrem
+    // Suhu
     let tempStr = `${temp}°C`;
     if (temp >= 32) {
       tempStr = `<strong style="color: #dc3545;">${temp}°C</strong> (panas)`;
@@ -477,7 +477,7 @@
       parts.push('Cuaca sejuk, nyaman untuk beraktivitas.');
     }
 
-    return parts.join(' ');
+    return parts;
   }
 
   // ==================== UI RENDERING ====================
@@ -527,12 +527,29 @@
       <div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">${w.current.visibility ? (w.current.visibility/1000).toFixed(1): '-'} km</div><div class="label">Jarak Pandang</div></div></div>
       </div>`;
 
-      const summaryText = generateSummary();
-      if (summaryText) {
+      // Ringkasan lisan dengan fitur "Baca selengkapnya"
+      const summaryParts = generateSummaryParts();
+      if (summaryParts.length) {
+        const shortLimit = 3; // jumlah kalimat awal yang ditampilkan
+        const isLong = summaryParts.length > shortLimit;
+        let shortHtml = summaryParts.slice(0, shortLimit).join(' ');
+        let fullHtml = summaryParts.join(' ');
+        let summaryHtml = '';
+        if (isLong) {
+          summaryHtml = `
+          <div class="summary-collapsible">
+          <span class="summary-short">${shortHtml}</span>
+          <span class="summary-full" style="display:none;">${fullHtml}</span>
+          <button class="btn btn-sm btn-link p-0 ms-1 summary-toggle" style="font-size:0.8rem;">Baca selengkapnya</button>
+          </div>
+          `;
+        } else {
+          summaryHtml = fullHtml;
+        }
         html += `
-        <div class="alert alert-info my-3 py-2 px-3" style="background-color: rgba(var(--tg-theme-button-color-rgb), 0.1); border: none; border-radius: 12px;">
+        <div class="alert alert-info mt-3 mb-3 py-2 px-3" style="background-color: rgba(var(--tg-theme-button-color-rgb), 0.1); border: none; border-radius: 12px;">
         <i class="bi bi-chat-dots-fill me-2" style="color: var(--tg-theme-button-color);"></i>
-        <span class="small">${summaryText}</span>
+        <div class="small">${summaryHtml}</div>
         </div>
         `;
       }
@@ -604,6 +621,27 @@
       </div>`;
 
       appElement.innerHTML = html;
+      // Event listener untuk tombol toggle ringkasan
+      document.querySelectorAll('.summary-toggle').forEach(btn => {
+      btn.removeEventListener('click', toggleSummary); // hindari duplikasi
+      btn.addEventListener('click', toggleSummary);
+      });
+
+      function toggleSummary(e) {
+        const container = this.closest('.summary-collapsible');
+        const shortSpan = container.querySelector('.summary-short');
+        const fullSpan = container.querySelector('.summary-full');
+        if (fullSpan.style.display === 'none') {
+          fullSpan.style.display = 'inline';
+          shortSpan.style.display = 'none';
+          this.textContent = 'Lebih sedikit';
+        } else {
+          fullSpan.style.display = 'none';
+          shortSpan.style.display = 'inline';
+          this.textContent = 'Baca selengkapnya';
+        }
+      }
+
       if (window.forecastData && window.forecastData.chart && window.forecastData.chart.labels) {
         drawChart(window.forecastData.chart);
       }
