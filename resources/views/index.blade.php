@@ -149,6 +149,38 @@
     font-size: 1rem;
     font-weight: 600;
   }
+
+  @keyframes rainDrop {
+    0% {
+      transform: translateY(-10px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(20px);
+      opacity: 1;
+    }
+  }
+
+  /* Animasi berdasarkan kondisi cuaca */
+  .weather-icon.clear img {
+    animation: breathe 3s infinite ease-in-out;
+  }
+
+  .weather-icon.rain img {
+    animation: bounce 1.5s infinite ease;
+  }
+
+  .weather-icon.clouds img {
+    animation: breathe 4s infinite ease-in-out;
+  }
+
+  .weather-icon.thunderstorm img {
+    animation: spin 2s infinite linear;
+  }
+
+  .weather-icon.snow img {
+    animation: bounce 2s infinite ease;
+  }
   #tempChart {
     max-height: 180px;
     width: 100%;
@@ -519,10 +551,18 @@
     if (currentState === 'loaded' && window.weatherData) {
       const w = window.weatherData;
       const iconUrl = `https://openweathermap.org/img/wn/${w.weather.icon}@2x.png`;
+      const weatherMain = w.weather.main.toLowerCase();
+      let weatherClass = '';
+      if (weatherMain.includes('clear')) weatherClass = 'clear';
+      else if (weatherMain.includes('rain')) weatherClass = 'rain';
+      else if (weatherMain.includes('cloud')) weatherClass = 'clouds';
+      else if (weatherMain.includes('thunderstorm')) weatherClass = 'thunderstorm';
+      else if (weatherMain.includes('snow')) weatherClass = 'snow';
+
       let html = `<div>
       <div class="text-center mb-4">
       <h5>${w.location.name}, ${w.location.country}</h5>
-      <div class="weather-icon my-2"><img src="${iconUrl}" alt="${w.weather.description}" style="width: 80px; height: 80px;"></div>
+      <div class="weather-icon ${weatherClass} my-2"><img src="${iconUrl}" alt="${w.weather.description}" style="width: 80px; height: 80px;"></div>
       <div class="temperature">${w.current.temperature}°C</div>
       <div class="text-muted text-uppercase">${w.weather.description}</div>
       <div class="mt-1">Terasa seperti ${w.current.feels_like}°C</div>
