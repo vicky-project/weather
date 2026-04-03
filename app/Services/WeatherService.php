@@ -319,6 +319,7 @@ class WeatherService
         'humidity' => $main->humidity ?? 0,
         'pressure' => $main->pressure ?? 0,
         'wind_speed' => $wind->speed ?? 0,
+        'wind_deg' => $wind->deg ?? 0,
         'clouds' => $clouds->all ?? 0,
         'visibility' => $visibility,
       ],

@@ -182,6 +182,20 @@
     }
   }
 
+  function getWindDirection(deg) {
+    if (deg === undefined || deg === null) return 'Angin';
+    const directions = ['N',
+      'NE',
+      'E',
+      'SE',
+      'S',
+      'SW',
+      'W',
+      'NW'];
+    const idx = Math.round(deg / 45) % 8;
+    return directions[idx];
+  }
+
   // ==================== FETCH ALL WEATHER DATA (ASYNC/AWAIT) ====================
   async function fetchAllWeather(lat, lon, city = null) {
     currentState = 'loading';
@@ -515,7 +529,16 @@
       </div>
       <div class="row g-2 mb-3">
       <div class="col-4"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${w.current.humidity}%</div><div class="label">Kelembaban</div></div></div>
-      <div class="col-4"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${(w.current.wind_speed * 3.6).toFixed(1)} Km/h</div><div class="label">Angin</div></div></div>
+      <div class="col-4">
+      <div class="detail-item">
+      <i class="bi bi-wind"></i>
+      <div class="value">
+      ${(w.current.wind_speed * 3.6).toFixed(1)} km/h
+      ${w.current.wind_deg !== undefined && w.current.wind_deg !== null ? `<span style="display: inline-block; margin-left: 5px; transform: rotate(${w.current.wind_deg}deg);"><i class="bi bi-arrow-up-short"></i></span>`: ''}
+      </div>
+      <div class="label">${getWindDirection(w.current.wind_deg)}</div>
+      </div>
+      </div>
       <div class="col-4"><div class="detail-item"><i class="bi bi-cloud"></i><div class="value">${w.current.clouds}%</div><div class="label">Awan</div></div></div>
       </div>
       <div class="row g-2 mb-3">
