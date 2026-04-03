@@ -13,13 +13,10 @@ class WeatherService
 {
   protected int $cacheDuration = 900; // 30 menit
   protected string $geocodingUrl = 'http://api.openweathermap.org/geo/1.0/direct';
-  protected string $weatherUrl;
-  protected string $apiKey;
 
   public function __construct() {
     $this->apiKey = config('weather.openweather.api_key');
-    $this->weatherUrl = config("weather.openweather.base_url") . "/weather";
-    $this->forecastUrl = config("weather.openweather.base_url") . "/forecast";
+    $this->uviUrl = config("weather.openweather.base_url") . "/3.0/onecall";
   }
 
   /**
@@ -102,7 +99,7 @@ class WeatherService
   protected function getWeatherByCoordinates(float $lat, float $lon): ?array
   {
     try {
-      $response = Http::get($this->weatherUrl, [
+      $response = Http::get(config("weather.openweather.base_url") . "/weather", [
         'lat' => $lat,
         'lon' => $lon,
         'units' => 'metric',
@@ -143,7 +140,7 @@ class WeatherService
   {
     // Coba langsung dengan nama kota
     try {
-      $response = Http::get($this->weatherUrl, [
+      $response = Http::get(config("weather.openweather.base_url") . "/weather", [
         'q' => $city,
         'units' => 'metric',
         'appid' => $this->apiKey,
@@ -306,6 +303,7 @@ class WeatherService
     $clouds = $rawData->clouds ?? null;
     $sys = $rawData->sys ?? null;
     $visibility = $rawData->visibility ?? null;
+    $timezoneOffset = $rawData->timezone ?? 0;
 
     return [
       'location' => [
@@ -313,6 +311,7 @@ class WeatherService
         'country' => $sys->country ?? null,
         'latitude' => $coord->lat ?? null,
         'longitude' => $coord->lon ?? null,
+        'timezone_offset' => $timezoneOffset
       ],
       'current' => [
         'temperature' => round($main->temp ?? 0),
@@ -320,6 +319,7 @@ class WeatherService
         'humidity' => $main->humidity ?? 0,
         'pressure' => $main->pressure ?? 0,
         'wind_speed' => $wind->speed ?? 0,
+        'wind_deg' => $wind->deg ?? 0,
         'clouds' => $clouds->all ?? 0,
         'visibility' => $visibility,
       ],
@@ -339,50 +339,52 @@ class WeatherService
   }
 
   /**
-  * Mendapatkan data forecast 5 hari.
+  * Mendapatkan data forecast per jam (24 jam ke depan)
   */
-  public function getForecast($location): ?array
+  public function getHourlyForecast($location,
+    int $timezoneOffset = 0): ?array
   {
-    $cacheKey = 'forecast_' . $this->generateCacheKey($location);
+    $cacheKey = 'hourly_forecast_' . $this->generateCacheKey($location) . '_offset_'. $timezoneOffset;
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
-      Log::debug("Forecast cache hit", ["key" => $cacheKey]);
+      Log::debug("Hourly forecast cache hit", ["key" => $cacheKey]);
       return $cached;
     }
 
     try {
-      $forecastData = $this->fetchForecastFromApi($location);
+      $forecastData = $this->fetchHourlyForecastFromApi($location, $timezoneOffset);
       if ($forecastData) {
         Cache::put($cacheKey, $forecastData, $this->cacheDuration);
         return $forecastData;
       }
     } catch (Throwable $e) {
-      Log::error('Gagal mengambil data forecast', [
+      Log::error('Gagal mengambil data forecast per jam', [
         'location' => $location,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
       ]);
     }
     return null;
   }
 
-  protected function fetchForecastFromApi($location): ?array
+  protected function fetchHourlyForecastFromApi($location, int $timezoneOffset = 0): ?array
   {
     if (isset($location['latitude']) && isset($location['longitude'])) {
-      return $this->getForecastByCoordinates($location['latitude'], $location['longitude']);
+      return $this->getForecastByCoordinates($location['latitude'], $location['longitude'],
+        $timezoneOffset);
     }
 
     if (isset($location['city'])) {
-      return $this->getForecastByCityName($location['city']);
+      return $this->getForecastByCityName($location['city'], $timezoneOffset);
     }
 
     return null;
   }
 
-  protected function getForecastByCoordinates(float $lat, float $lon): ?array
+  protected function getForecastByCoordinates(float $lat, float $lon, int $timezoneOffset = 0): ?array
   {
-    $url = 'https://api.openweathermap.org/data/2.5/forecast';
     try {
-      $response = Http::get($this->forecastUrl, [
+      $response = Http::get(config("weather.openweather.base_url") . "/forecast", [
         'lat' => $lat,
         'lon' => $lon,
         'units' => 'metric',
@@ -402,7 +404,7 @@ class WeatherService
         return null;
       }
 
-      return $this->formatForecastData($data);
+      return $this->formatHourlyForecastData($data, $timezoneOffset);
     } catch (Throwable $e) {
       Log::warning('Gagal get forecast by coordinates', [
         'lat' => $lat,
@@ -413,12 +415,10 @@ class WeatherService
     }
   }
 
-  protected function getForecastByCityName(string $city): ?array
+  protected function getForecastByCityName(string $city, int $timezoneOffset = 0): ?array
   {
-    // Coba langsung dengan nama kota
-    $url = 'https://api.openweathermap.org/data/2.5/forecast';
     try {
-      $response = Http::get($this->forecastUrl, [
+      $response = Http::get(config("weather.openweather.base_url") . "/forecast", [
         'q' => $city,
         'units' => 'metric',
         'appid' => $this->apiKey,
@@ -427,7 +427,7 @@ class WeatherService
       if ($response->successful()) {
         $data = $response->json();
         if (($data['cod'] ?? '200') == '200') {
-          return $this->formatForecastData($data);
+          return $this->formatHourlyForecastData($data, $timezoneOffset);
         }
       }
     } catch (Throwable $e) {
@@ -440,59 +440,240 @@ class WeatherService
       return null;
     }
 
-    return $this->getForecastByCoordinates($coordinates['lat'], $coordinates['lon']);
+    return $this->getForecastByCoordinates($coordinates['lat'], $coordinates['lon'], $timezoneOffset);
   }
 
-  protected function formatForecastData(array $data): array
+  protected function formatHourlyForecastData(array $data, int $timezoneOffset = 0): array
   {
     $list = $data['list'] ?? [];
     if (empty($list)) {
-      return ['list' => []];
+      return ['hourly' => [],
+        'chart' => ['labels' => [],
+          'temps' => []]];
     }
 
-    $grouped = [];
+    $hourly = [];
+    $chartLabels = [];
+    $chartTemps = [];
+
+    // Ambil 8 data pertama (24 jam ke depan, interval 3 jam)
+    $limit = 8;
+    $now = Carbon::now()->addSeconds($timezoneOffset);
+    $filtered = [];
     foreach ($list as $item) {
-      $dt = Carbon::createFromTimestamp($item['dt']);
-      $dateKey = $dt->toDateString();
-      if (!isset($grouped[$dateKey])) {
-        $grouped[$dateKey] = [];
+      $dt = Carbon::createFromTimestamp($item['dt'] + $timezoneOffset);
+      if ($dt->greaterThanOrEqualTo($now)) {
+        $filtered[] = $item;
+        if (count($filtered) >= $limit) break;
       }
-      $grouped[$dateKey][] = $item;
     }
 
-    $daily = [];
-    foreach ($grouped as $dateKey => $items) {
-      // Ambil data yang paling mendekati jam 12:00 siang
-      $best = null;
-      $minDiff = 24 * 3600;
-      foreach ($items as $item) {
-        $itemDt = Carbon::createFromTimestamp($item['dt']);
-        $diff = abs($itemDt->hour - 12);
-        if ($diff < $minDiff) {
-          $minDiff = $diff;
-          $best = $item;
-        }
-      }
-      if ($best) {
-        $weather = $best['weather'][0] ?? [];
-        $temp = $best['main'] ?? [];
-        $daily[] = [
-          'date' => Carbon::createFromTimestamp($best['dt'])->format('d/m'),
-          'temp' => [
-            'day' => round($temp['temp'] ?? 0),
-          ],
-          'weather' => [
-            'main' => $weather['main'] ?? null,
-            'description' => $weather['description'] ?? null,
-            'icon' => $weather['icon'] ?? null,
-          ],
-        ];
-      }
+    if (empty($filtered)) {
+      $filtered = array_slice($list, 0, $limit);
+    }
+
+    foreach ($filtered as $item) {
+      $dt = Carbon::createFromTimestamp($item['dt'] + $timezoneOffset);
+      $timeLabel = $dt->format('H:i');
+      $weather = $item['weather'][0] ?? [];
+      $temp = $item['main']['temp'] ?? 0;
+      $feelsLike = $item['main']['feels_like'] ?? 0;
+
+      $hourly[] = [
+        'time' => $timeLabel,
+        'temp' => round($temp),
+        'feels_like' => round($feelsLike),
+        'humidity' => $item['main']['humidity'] ?? 0,
+        'pop' => ($item['pop'] ?? 0) * 100,
+        'icon' => $weather['icon'] ?? null,
+        'description' => $weather['description'] ?? null,
+        'pressure' => $item['main']['pressure'] ?? 0,
+        'wind_speed' => $item['wind']['speed'] ?? 0,
+        'wind_deg' => $item['wind']['deg'] ?? 0,
+        'clouds' => $item['clouds']['all'] ?? 0,
+        'visibility' => $item['visibility'] ?? 0
+      ];
+      $chartLabels[] = $timeLabel;
+      $chartTemps[] = round($temp);
     }
 
     return [
-      'list' => array_slice($daily, 0, 5) // maksimal 5 hari
+      'hourly' => $hourly,
+      'chart' => [
+        'labels' => $chartLabels,
+        'temps' => $chartTemps,
+      ]
     ];
+  }
+
+  /**
+  * Mendapatkan data kualitas udara (AQI) berdasarkan koordinat
+  */
+  public function getAirQuality(float $lat, float $lon): ?array
+  {
+    $cacheKey = 'air_quality_' . md5("{$lat},{$lon}");
+    $cached = Cache::get($cacheKey);
+    if ($cached !== null) {
+      Log::debug("Air quality cache hit", ["key" => $cacheKey]);
+      return $cached;
+    }
+
+    try {
+      $response = Http::get(config("weather.openweather.base_url") . "/air_pollution", [
+        'lat' => $lat,
+        'lon' => $lon,
+        'appid' => $this->apiKey,
+      ]);
+
+      if (!$response->successful()) {
+        Log::warning('Air pollution API error', ['status' => $response->status()]);
+        return null;
+      }
+
+      $data = $response->json();
+      if (empty($data) || !isset($data['list'][0])) {
+        return null;
+      }
+
+      $aqiData = $data['list'][0];
+      $aqi = $aqiData['main']['aqi']; // 1-5
+      $components = $aqiData['components'];
+
+      $result = [
+        'aqi' => $aqi,
+        'level' => $this->getAqiLevel($aqi),
+        'recommendation' => $this->getAqiRecommendation($aqi),
+        'components' => [
+          'pm2_5' => round($components['pm2_5'] ?? 0, 1),
+          'pm10' => round($components['pm10'] ?? 0, 1),
+          'o3' => round($components['o3'] ?? 0, 1),
+          'no2' => round($components['no2'] ?? 0, 1),
+          'so2' => round($components['so2'] ?? 0, 1),
+          'co' => round($components['co'] ?? 0, 1),
+        ],
+      ];
+
+      Cache::put($cacheKey, $result, $this->cacheDuration);
+      return $result;
+    } catch (Throwable $e) {
+      Log::error('Gagal mengambil data kualitas udara', [
+        'lat' => $lat,
+        'lon' => $lon,
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+      ]);
+      return null;
+    }
+  }
+
+  protected function getAqiLevel($aqi): string
+  {
+    switch ($aqi) {
+      case 1: return 'Baik';
+      case 2: return 'Sedang';
+      case 3: return 'Tidak Sehat untuk Sensitif';
+      case 4: return 'Tidak Sehat';
+      case 5: return 'Sangat Tidak Sehat';
+      default: return 'Tidak diketahui';
+    }
+  }
+
+  protected function getAqiRecommendation($aqi): string
+  {
+    switch ($aqi) {
+    case 1: return 'Aktivitas luar ruangan aman.';
+    case 2: return 'Kelompok sensitif sebaiknya kurangi aktivitas luar yang lama.';
+    case 3: return 'Kurangi aktivitas luar ruangan yang berat.';
+    case 4: return 'Hindari aktivitas luar ruangan. Gunakan masker jika keluar.';
+    case 5: return 'Tetap di dalam ruangan. Gunakan pembersih udara.';
+    default: return '';
+    }
+  }
+
+  /**
+  * Mendapatkan indeks UV berdasarkan koordinat
+  */
+  public function getUVIndex(float $lat, float $lon, ?string $timezone = null): ?array
+  {
+    $cacheKey = 'uv_index_' . md5("{$lat},{$lon}_{$timezone}");
+    $cached = Cache::get($cacheKey);
+    if ($cached !== null) {
+      Log::debug("UV index cache hit", ["key" => $cacheKey]);
+      return $cached;
+    }
+
+    try {
+      // Menggunakan Open-Meteo API (gratis, tanpa API key)
+      $url = "https://api.open-meteo.com/v1/forecast";
+      $params = [
+        'latitude' => $lat,
+        'longitude' => $lon,
+        'daily' => 'uv_index_max',
+      ];
+
+      if ($timezone) {
+        $params["timezone"] = $timezone;
+      } else {
+        $params["timezone"] = "auto";
+      }
+      $response = Http::get($url, $params);
+
+      if (!$response->successful()) {
+        Log::warning('Open-Meteo API error for UV', ['status' => $response->status()]);
+        return null;
+      }
+
+      $data = $response->json();
+      if (empty($data) || !isset($data['daily']['uv_index_max'][0])) {
+        return null;
+      }
+
+      $uvi = $data['daily']['uv_index_max'][0]; // Nilai UV maksimum hari ini
+      $result = [
+        'uvi' => $uvi,
+        'level' => $this->getUvLevel($uvi),
+        'recommendation' => $this->getUvRecommendation($uvi),
+        'color' => $this->getUvColor($uvi),
+      ];
+
+      Cache::put($cacheKey, $result, $this->cacheDuration);
+      return $result;
+    } catch (Throwable $e) {
+      Log::error('Gagal mengambil indeks UV', [
+        'lat' => $lat,
+        'lon' => $lon,
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+      ]);
+      return null;
+    }
+  }
+
+  protected function getUvLevel($uvi): string
+  {
+    if ($uvi <= 2) return 'Rendah';
+    if ($uvi <= 5) return 'Sedang';
+    if ($uvi <= 7) return 'Tinggi';
+    if ($uvi <= 10) return 'Sangat Tinggi';
+    return 'Ekstrem';
+  }
+
+  protected function getUvRecommendation($uvi): string
+  {
+    if ($uvi <= 2) return 'Aman beraktivitas di luar.';
+    if ($uvi <= 5) return 'Gunakan tabir surya dan topi.';
+    if ($uvi <= 7) return 'Hindari matahari langsung (10-16). Gunakan pelindung.';
+    if ($uvi <= 10) return 'Bahaya! Gunakan tabir surya SPF 30+, kacamata hitam, dan pakaian tertutup.';
+    return 'Sangat berbahaya! Jangan keluar rumah jika tidak perlu.';
+  }
+
+  protected function getUvColor($uvi): string
+  {
+    if ($uvi <= 2) return '#198754'; // hijau
+    if ($uvi <= 5) return '#ffc107'; // kuning
+    if ($uvi <= 7) return '#fd7e14'; // oranye
+    if ($uvi <= 10) return '#dc3545'; // merah
+    return '#6f42c1'; // ungu untuk ekstrem
   }
 
   /**
