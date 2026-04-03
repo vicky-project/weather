@@ -548,7 +548,7 @@
         }
         html += `
         <div class="alert alert-info mt-3 mb-3 py-2 px-3" style="background-color: rgba(var(--tg-theme-button-color-rgb), 0.1); border: none; border-radius: 12px;">
-        <i class="bi bi-chat-dots-fill me-2" style="color: var(--tg-theme-button-color);"></i>
+        <i class="bi bi-chat-dots-fill me-2" style="color: var(--tg-theme-button-color);"></i> Information
         <div class="small">${summaryHtml}</div>
         </div>
         `;
