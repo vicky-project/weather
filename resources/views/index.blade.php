@@ -684,6 +684,9 @@
 
     const details = item.details || item; // fallback
     const pop = details.pop || 0;
+    const windSpeed = details.wind_speed ? (details.wind_speed * 3.6).toFixed(1): '-';
+    const windDeg = details.wind_deg;
+    const windDir = getWindDirection(windDeg);
 
     const html = `
     <div class="text-center mb-3">
@@ -723,8 +726,11 @@
     <div class="col-6">
     <div class="detail-item">
     <i class="bi bi-wind"></i>
-    <div class="value">${details.wind_speed ? (details.wind_speed * 3.6).toFixed(1): '-'} Km/h</div>
-    <div class="label">Angin</div>
+    <div class="value">
+    ${windSpeed} Km/h
+    ${windDeg !== undefined && windDeg !== null ? `<span style="display: inline-block;transform: rotate(${windDeg}deg);margin-left: 5px;"><i class="bi bi-arrow-up-short"></i></span>`: ''}
+    </div>
+    <div class="label">Angin (${windDir})</div>
     </div>
     </div>
     <div class="col-6">

@@ -489,6 +489,7 @@ class WeatherService
         'description' => $weather['description'] ?? null,
         'pressure' => $item['main']['pressure'] ?? 0,
         'wind_speed' => $item['wind']['speed'] ?? 0,
+        'wind_deg' => $item['wind']['deg'] ?? 0,
         'clouds' => $item['clouds']['all'] ?? 0,
         'visibility' => $item['visibility'] ?? 0
       ];
