@@ -34,9 +34,17 @@ class WeatherSent extends Notification implements ShouldQueue
   public function __construct(protected array $weatherData) {}
 
   public function via($notifiable) {
+    if ($notifiable instanceof \Modules\Telegram\Models\TelegramUser) {
+      return ["telegram"];
+    }
+
+    if (method_exists($notifiable, "notifyAuthenticationLogVia")) {
+      return $notifiable->notifyAuthenticationLogVia();
+    }
+
     $stack = config("weather.notifications.stack");
 
-    return !is_string($stack) ? ["telegram"] : explode(",", trim($stack));
+    return !is_string($stack) ? ["database"] : explode(",", trim($stack));
   }
 
   public function toTelegram($notifiable) {
