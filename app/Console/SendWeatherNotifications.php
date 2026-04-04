@@ -87,6 +87,10 @@ class SendWeatherNotifications extends Command
 
         $user->notify(new WeatherSent($weatherData));
 
+        if (!isset($weatherNotifications[$today]) || !is_array($weatherNotifications[$today])) {
+          $weatherNotifications[$today] = [];
+        }
+
         // Tandai slot ini sebagai sudah dikirim
         $weatherNotifications[$today][$slot] = true;
         $data['weather_notifications'] = $weatherNotifications;
