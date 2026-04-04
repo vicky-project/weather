@@ -60,6 +60,9 @@ class SendWeatherNotifications extends Command
 
         // Ambil history pengiriman notifikasi cuaca
         $weatherNotifications = $data['weather_notifications'] ?? [];
+        if (!is_array($weatherNotifications)) {
+          $weatherNotifications = [];
+        }
 
         // Cek apakah untuk slot ini sudah dikirim hari ini
         if (isset($weatherNotifications[$today][$slot]) && $weatherNotifications[$today][$slot] === true) {
@@ -83,6 +86,10 @@ class SendWeatherNotifications extends Command
         }
 
         $user->notify(new WeatherSent($weatherData));
+
+        if (!isset($weatherNotifications[$today]) || !is_array($weatherNotifications[$today])) {
+          $weatherNotifications[$today] = [];
+        }
 
         // Tandai slot ini sebagai sudah dikirim
         $weatherNotifications[$today][$slot] = true;
