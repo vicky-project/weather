@@ -59,13 +59,17 @@ class SendWeatherNotifications extends Command
         }
 
         // Ambil history pengiriman notifikasi cuaca
-        $weatherNotifications = $data['weather_notifications'] ?? [];
-        if (!is_array($weatherNotifications)) {
-          $weatherNotifications = [];
+        $weatherNotificationsSent = $data['weather_notifications_sent'] ?? [];
+        if (!is_array($weatherNotificationsSent)) {
+          $weatherNotificationsSent = [];
+        }
+
+        if (!isset($weatherNotificationsSent[$today]) || !is_array($weatherNotificationsSent[$today])) {
+          $weatherNotificationsSent[$today] = [];
         }
 
         // Cek apakah untuk slot ini sudah dikirim hari ini
-        if (isset($weatherNotifications[$today][$slot]) && $weatherNotifications[$today][$slot] === true) {
+        if (isset($weatherNotificationsSent[$today][$slot]) && $weatherNotificationsSent[$today][$slot] === true) {
           $this->info("Notifikasi cuaca sudah dikirim untuk slot {$slot} hari ini, lewati.");
           \Log::debug("Weather notification already sent for {$slot} slot", [
             "telegram_id" => $user->telegram_id
@@ -87,13 +91,9 @@ class SendWeatherNotifications extends Command
 
         $user->notify(new WeatherSent($weatherData));
 
-        if (!isset($weatherNotifications[$today]) || !is_array($weatherNotifications[$today])) {
-          $weatherNotifications[$today] = [];
-        }
-
         // Tandai slot ini sebagai sudah dikirim
-        $weatherNotifications[$today][$slot] = true;
-        $data['weather_notifications'] = $weatherNotifications;
+        $weatherNotificationsSent[$today][$slot] = true;
+        $data['weather_notifications_sent'] = $weatherNotificationsSent;
         $user->data = $data;
         $user->save();
 
