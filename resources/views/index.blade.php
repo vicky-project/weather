@@ -730,6 +730,10 @@
 
     const html = `
     <div class="text-center mb-3">
+    <div class="mb-2">
+    <i class="bi bi-calendar3 me-1"></i> ${details.date || '-'} &nbsp;|&nbsp;
+    <i class="bi bi-clock me-1"></i> ${details.time || '-'}
+    </div>
     <img src="https://openweathermap.org/img/wn/${details.icon}@2x.png" width="80" height="80" alt="${details.description}">
     <h4>${details.temp}°C</h4>
     <p class="text-muted">${details.description}</p>
