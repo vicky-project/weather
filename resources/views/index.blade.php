@@ -6,7 +6,7 @@
   <div class="row justify-content-center mb-3">
     <div class="col-md-12">
       <div class="d-flex justify-content-between align-items-center">
-        <a href="{{ route('telegram.home') }}" class="btn btn-outline-secondary">
+        <a href="{{ route('telegram.home') }}" class="btn btn-outline-secondary disabled">
           <i class="bi bi-arrow-left me-2"></i>Kembali
         </a>
         <div>
