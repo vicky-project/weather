@@ -475,12 +475,16 @@ class WeatherService
     foreach ($filtered as $item) {
       $dt = Carbon::createFromTimestamp($item['dt'] + $timezoneOffset);
       $timeLabel = $dt->format('H:i');
+      $dateLabel = $dt->format('d/m/Y');
+      $fullDateTime = $dt->format('d-m-Y H:i:s');
       $weather = $item['weather'][0] ?? [];
       $temp = $item['main']['temp'] ?? 0;
       $feelsLike = $item['main']['feels_like'] ?? 0;
 
       $hourly[] = [
         'time' => $timeLabel,
+        'date' => $dateLabel,
+        'datetime' => $fullDateTime,
         'temp' => round($temp),
         'feels_like' => round($feelsLike),
         'humidity' => $item['main']['humidity'] ?? 0,
