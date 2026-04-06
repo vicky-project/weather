@@ -43,7 +43,7 @@
     <div class="modal-content" style="background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color);">
       <div class="modal-header" style="border-bottom-color: var(--tg-theme-hint-color);">
         <h5 class="modal-title">Detail Cuaca</h5>
-        <button type="button" class="btn-close" style="color: var(--tg-theme-hint-color);" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close" style="color: var(--tg-theme-text-color);" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="forecastDetailBody">
         {{-- Detail akan diisi --}}
