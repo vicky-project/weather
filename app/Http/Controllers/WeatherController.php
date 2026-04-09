@@ -23,7 +23,7 @@ class WeatherController extends Controller
   }
 
   public function settings(Request $request) {
-    $telegramUser = $request->user(); // Dari middleware
+    $telegramUser = $request->user('telegram'); // Dari middleware
     $settings = $this->weatherService->getUserSettings($telegramUser->id);
     return response()->json(["data" => $settings]);
   }
@@ -33,7 +33,7 @@ class WeatherController extends Controller
   * Bisa berdasarkan pengguna yang sudah login (dari middleware) atau input manual.
   */
   public function getWeather(Request $request) {
-    $telegramUser = $request->user(); // Bisa null jika tidak ada
+    $telegramUser = $request->user('telegram'); // Bisa null jika tidak ada
 
     $data = null;
 
@@ -64,7 +64,7 @@ class WeatherController extends Controller
   }
 
   public function getHourlyForecast(Request $request) {
-    $telegramUser = $request->user();
+    $telegramUser = $request->user('telegram');
     $timezoneOffset = (int) $request->input('timezone_offset', 0);
 
     $location = null;
@@ -129,7 +129,7 @@ class WeatherController extends Controller
   * Simpan pengaturan cuaca pengguna.
   */
   public function saveSettings(Request $request) {
-    $telegramUser = $request->user();
+    $telegramUser = $request->user('telegram');
 
     if (!$telegramUser) {
       return response()->json([
