@@ -5,6 +5,12 @@
 @section('content')
 <div class="container py-0" style="max-width:600px; margin:0 auto;">
   <div id="weather-app">
+    <div id="loading-view" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">
+        Memuat data cuaca...
+      </p>
+    </div>
     <div id="weather-view" style="display:none;"></div>
     <div id="settings-view" style="display:none;"></div>
   </div>
@@ -80,16 +86,6 @@
   .forecast-hour-card:active {
     transform: scale(0.96);
   }
-  .summary-collapsible .summary-full {
-    display: none;
-  }
-  .summary-toggle {
-    cursor: pointer;
-    color: var(--tg-theme-link-color);
-    background: none;
-    border: none;
-    font-size: 0.8rem;
-  }
   .pagination-wrapper {
     overflow-x: auto;
     text-align: center;
@@ -110,17 +106,31 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   (function() {
-  const { fetchWithAuth, showToast, showLoading, hideLoading, escapeHtml, renderPagination } = window.TelegramApp;
+  // Fallback jika window.TelegramApp tidak tersedia
+  const fallback = {
+  fetchWithAuth: async (url, options) => {
+  const res = await fetch(url, {
+  ...options,
+  headers: { 'Content-Type': 'application/json', ...options.headers }
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+  },
+  showToast: (msg) => alert(msg),
+  showLoading: () => {},
+  hideLoading: () => {},
+  escapeHtml: (str) => str?.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])) || '',
+  renderPagination: () => {}
+  };
+  const app = window.TelegramApp || fallback;
+  const { fetchWithAuth, showToast, showLoading, hideLoading, escapeHtml, renderPagination } = app;
 
-  let currentView = 'weather'; // 'weather' or 'settings'
   let weatherData = null;
   let forecastData = null;
   let aqiData = null;
   let uvData = null;
   let settingsData = null;
-  let usingDefault = false;
 
-  // Helper: get wind direction
   function getWindDirection(deg) {
   if (deg === undefined || deg === null) return '';
   const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -128,7 +138,6 @@
   return directions[idx];
   }
 
-  // ========== WEATHER API ==========
   async function loadWeather(lat = null, lon = null, city = null) {
   showLoading('Memuat data cuaca...');
   try {
@@ -141,7 +150,6 @@
   if (!current.success) throw new Error(current.message || 'Gagal memuat cuaca');
   weatherData = current.data;
 
-  // Optional: aqi, uv, forecast
   if (weatherData.location.latitude && weatherData.location.longitude) {
   try {
   const aqiRes = await fetchWithAuth('{{ config("app.url") }}/api/weather/air-quality', { method: 'POST', body: JSON.stringify({ latitude: weatherData.location.latitude, longitude: weatherData.location.longitude }) });
@@ -162,12 +170,12 @@
   showToast('Error: ' + err.message);
   document.getElementById('weather-view').innerHTML = `<div class="alert alert-danger m-3">Gagal memuat cuaca: ${err.message}<br><button class="btn btn-primary mt-2" onclick="location.reload()">Coba Lagi</button></div>`;
   document.getElementById('weather-view').style.display = 'block';
+  document.getElementById('loading-view').style.display = 'none';
   } finally {
   hideLoading();
   }
   }
 
-  // Load settings (default location, notifications)
   async function loadSettings() {
   try {
   const res = await fetchWithAuth('{{ config("app.url") }}/api/weather/settings');
@@ -175,14 +183,13 @@
   } catch(e) { settingsData = {}; }
   }
 
-  // Save settings
   async function saveSettings(formData) {
   showLoading('Menyimpan...');
   try {
   const res = await fetchWithAuth('{{ config("app.url") }}/api/weather/settings', { method: 'POST', body: JSON.stringify(formData) });
   if (res.success) {
   showToast('Pengaturan disimpan');
-  loadSettings();
+  await loadSettings();
   showWeatherView();
   } else {
   showToast(res.message || 'Gagal menyimpan');
@@ -194,19 +201,10 @@
   }
   }
 
-  // ========== RENDER WEATHER VIEW ==========
   function renderWeatherView() {
   if (!weatherData) return;
   const w = weatherData;
   const iconUrl = `https://openweathermap.org/img/wn/${w.weather.icon}@2x.png`;
-  const weatherMain = w.weather.main.toLowerCase();
-  let weatherClass = '';
-  if (weatherMain.includes('clear')) weatherClass = 'clear';
-  else if (weatherMain.includes('rain')) weatherClass = 'rain';
-  else if (weatherMain.includes('cloud')) weatherClass = 'clouds';
-  else if (weatherMain.includes('thunderstorm')) weatherClass = 'thunderstorm';
-  else if (weatherMain.includes('snow')) weatherClass = 'snow';
-
   let html = `
   <div class="card shadow">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -219,7 +217,7 @@
   <div class="card-body">
   <div class="text-center mb-4">
   <h5>${escapeHtml(w.location.name)}, ${escapeHtml(w.location.country)}</h5>
-  <div class="weather-icon ${weatherClass} my-2"><img src="${iconUrl}" alt="${w.weather.description}"></div>
+  <div class="weather-icon my-2"><img src="${iconUrl}" alt="${w.weather.description}"></div>
   <div class="temperature">${w.current.temperature}°C</div>
   <div class="text-muted text-uppercase">${escapeHtml(w.weather.description)}</div>
   <div class="mt-1">Terasa ${w.current.feels_like}°C</div>
@@ -234,17 +232,12 @@
   <div class="col-6"><div class="detail-item"><i class="bi bi-sunset"></i><div class="value">${w.sun.set}</div><div class="label">Terbenam</div></div></div>
   </div>
   `;
-
-  // AQI
   if (aqiData) {
   html += `<hr><div class="mb-3"><h6><i class="bi bi-activity me-2"></i>Kualitas Udara (AQI)</h6><div class="detail-item"><div class="value">${aqiData.level}</div><div class="label">Indeks: ${aqiData.aqi}</div><div class="small text-muted mt-1">${aqiData.recommendation}</div></div></div>`;
   }
-  // UV
   if (uvData) {
   html += `<div class="mb-3"><h6><i class="bi bi-brightness-high me-2"></i>Indeks UV</h6><div class="detail-item"><div class="value" style="color: ${uvData.color};">${uvData.uvi} - ${uvData.level}</div><div class="small text-muted">${uvData.recommendation}</div></div></div>`;
   }
-
-  // Forecast
   if (forecastData && forecastData.hourly && forecastData.hourly.length) {
   html += `<hr><h6 class="mt-3 mb-3"><i class="bi bi-clock-history me-2"></i>Perkiraan 24 Jam</h6><div class="d-flex flex-nowrap overflow-auto gap-2 pb-2">`;
   forecastData.hourly.forEach((item, idx) => {
@@ -265,13 +258,12 @@
   } else {
   html += `<div class="alert alert-warning mt-3">Data forecast tidak tersedia.</div>`;
   }
-
   html += `<div class="text-muted small text-center mt-3"><i class="bi bi-clock me-1"></i>Diperbarui: ${new Date(w.updated_at).toLocaleTimeString()}</div></div></div>`;
   document.getElementById('weather-view').innerHTML = html;
   document.getElementById('weather-view').style.display = 'block';
   document.getElementById('settings-view').style.display = 'none';
+  document.getElementById('loading-view').style.display = 'none';
 
-  // Attach events
   document.getElementById('settingsBtn').addEventListener('click', () => showSettingsView());
   document.getElementById('refreshWeatherBtn').addEventListener('click', () => {
   const loc = weatherData.location;
@@ -321,8 +313,6 @@
   <div class="col-6"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${windSpeed} km/j ${windDeg ? `<span style="display:inline-block;transform:rotate(${windDeg}deg)"><i class="bi bi-arrow-up-short"></i></span>` : ''}</div><div class="label">Angin (${windDir})</div></div></div>
   </div>
   `;
-  showToast(html, 5000); // quick modal fallback? Bisa pakai modal sederhana.
-  // Alternatif: buat modal global sederhana
   let modal = document.getElementById('globalModal');
   if (!modal) {
   modal = document.createElement('div');
@@ -335,14 +325,12 @@
   modal.style.display = 'block';
   }
 
-  // ========== SETTINGS VIEW ==========
   async function showSettingsView() {
   if (!settingsData) await loadSettings();
   const city = settingsData.city || '';
   const lat = settingsData.latitude || '';
   const lon = settingsData.longitude || '';
   const notifications = settingsData.notifications_enabled || false;
-
   let html = `
   <div class="card shadow">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -360,11 +348,11 @@
   <div class="row">
   <div class="col-md-6 mb-3">
   <label class="form-label">Latitude</label>
-  <input type="number" step="any" class="form-control" id="latitude" value="${lat}" placeholder="-6.2088">
+  <input type="number" step="any" class="form-control" id="latitude" value="${escapeHtml(lat)}" placeholder="-6.2088">
   </div>
   <div class="col-md-6 mb-3">
   <label class="form-label">Longitude</label>
-  <input type="number" step="any" class="form-control" id="longitude" value="${lon}" placeholder="106.8456">
+  <input type="number" step="any" class="form-control" id="longitude" value="${escapeHtml(lon)}" placeholder="106.8456">
   </div>
   </div>
   <div class="mb-3">
@@ -384,6 +372,7 @@
   document.getElementById('settings-view').innerHTML = html;
   document.getElementById('weather-view').style.display = 'none';
   document.getElementById('settings-view').style.display = 'block';
+  document.getElementById('loading-view').style.display = 'none';
   document.getElementById('backToWeatherBtn').addEventListener('click', () => showWeatherView());
   document.getElementById('autoLocationBtn').addEventListener('click', requestCurrentLocation);
   document.getElementById('settingsForm').addEventListener('submit', (e) => {
@@ -478,7 +467,7 @@
   }
   }
 
-  // Start
+  // Mulai aplikasi
   loadDefaultLocation();
   })();
 </script>
