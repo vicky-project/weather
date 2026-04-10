@@ -13,6 +13,24 @@
     </div>
     <div id="weather-view" style="display:none;"></div>
     <div id="settings-view" style="display:none;"></div>
+
+    <!-- Modal Bootstrap untuk detail forecast -->
+    <div class="modal fade" id="forecastModal" tabindex="-1" aria-labelledby="forecastModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color);">
+          <div class="modal-header" style="border-bottom-color: var(--tg-theme-section-separator-color);">
+            <h5 class="modal-title" id="forecastModalLabel">Detail Cuaca</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: invert(1);"></button>
+          </div>
+          <div class="modal-body" id="forecastModalBody">
+            <!-- konten akan diisi JavaScript -->
+          </div>
+          <div class="modal-footer" style="border-top-color: var(--tg-theme-section-separator-color);">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 @endsection
@@ -399,13 +417,10 @@
   const clouds = details.clouds !== undefined ? `${details.clouds}%` : '-';
 
   const html = `
-  <div style="position:relative; margin-bottom: 10px;">
-  <button id="closeModalBtn" style="position:absolute; top:0; right:0; background:none; border:none; font-size:1.8rem; line-height:1; cursor:pointer; color:var(--tg-theme-hint-color);">&times;</button>
-  </div>
   <div class="text-center mb-3">
-  <div style="font-size:0.9rem; color:var(--tg-theme-hint-color);">${details.date || ''} ${details.time || ''}</div>
+  <div class="text-muted small">${details.date || ''} ${details.time || ''}</div>
   <img src="https://openweathermap.org/img/wn/${details.icon}@4x.png" width="80" height="80">
-  <h4 style="margin: 8px 0;">${details.temp}°C</h4>
+  <h4>${details.temp}°C</h4>
   <p class="text-muted">${details.description}</p>
   </div>
   <div class="row g-2">
@@ -420,47 +435,15 @@
   </div>
   `;
 
-  let modal = document.getElementById('globalModal');
-  if (!modal) {
-  modal = document.createElement('div');
-  modal.id = 'globalModal';
-  modal.style.cssText = `
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--tg-theme-bg-color);
-  color: var(--tg-theme-text-color);
-  border-radius: 24px;
-  padding: 20px;
-  max-width: 340px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  z-index: 10001;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  border: 1px solid var(--tg-theme-section-separator-color);
-  `;
-  // Buat div untuk konten di dalam modal
-  const contentDiv = document.createElement('div');
-  contentDiv.id = 'globalModalContent';
-  modal.appendChild(contentDiv);
-  document.body.appendChild(modal);
-  }
-  const contentDiv = document.getElementById('globalModalContent');
-  if (contentDiv) {
-  contentDiv.innerHTML = html;
+  const modalBody = document.getElementById('forecastModalBody');
+  if (modalBody) modalBody.innerHTML = html;
+  const modalEl = document.getElementById('forecastModal');
+  if (modalEl) {
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
   } else {
-  console.error('globalModalContent tidak ditemukan');
-  return;
-  }
-  modal.style.display = 'block';
-
-  const closeBtn = document.getElementById('closeModalBtn');
-  if (closeBtn) {
-  closeBtn.removeEventListener('click', closeModalHandler);
-  const closeModalHandler = () => { modal.style.display = 'none'; };
-  closeBtn.addEventListener('click', closeModalHandler);
+  console.error('Modal element not found');
+  alert("Modal element not found.");
   }
   } catch (err) {
   handleGlobalError(err, 'showForecastDetail');
