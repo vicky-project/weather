@@ -74,14 +74,27 @@
     font-size: 1.5rem;
     color: var(--tg-theme-button-color);
   }
+  /* Perbaiki kontras forecast card */
   .forecast-hour-card {
-    background-color: var(--tg-theme-secondary-bg-color);
+    background-color: var(--tg-theme-secondary-bg-color) !important;
+    border: 1px solid var(--tg-theme-section-separator-color) !important;
     border-radius: 12px;
     padding: 8px;
     text-align: center;
     min-width: 80px;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: transform 0.2s, background-color 0.2s;
+  }
+  .forecast-hour-card:hover {
+    background-color: var(--tg-theme-hint-color) !important;
+  }
+  /* Modal agar sesuai tema */
+  .modal-content {
+    background-color: var(--tg-theme-bg-color);
+    color: var(--tg-theme-text-color);
+  }
+  .modal-header, .modal-footer {
+    border-color: var(--tg-theme-section-separator-color);
   }
   .forecast-hour-card:active {
     transform: scale(0.96);
@@ -311,7 +324,7 @@
   showForecastDetail(idx);
   });
   });
-  if (forecastData && forecastData.chart && forecastData.chart.labels) drawChart(forecastData.chart);
+  if (forecastData && forecastData.chart && forecastData.chart.labels) setTimeout(() => drawChart(forecastData.chart), 50);
   } catch (err) {
   handleGlobalError(err, 'renderWeatherView');
   }
@@ -320,15 +333,46 @@
   function drawChart(chartData) {
   try {
   const canvas = document.getElementById('tempChart');
-  if (!canvas) return;
+  if (!canvas) {
+  console.warn('Canvas not found, retrying...');
+  setTimeout(() => drawChart(chartData), 100);
+  return;
+  }
   if (window.tempChart) window.tempChart.destroy();
+  // Ambil warna button dari tema (fallback biru)
+  const buttonColor = getComputedStyle(document.documentElement).getPropertyValue('--tg-theme-button-color').trim() || '#007aff';
   window.tempChart = new Chart(canvas, {
   type: 'line',
-  data: { labels: chartData.labels, datasets: [{ label: 'Suhu (°C)', data: chartData.temps, borderColor: '#f1c40f', backgroundColor: 'rgba(241,196,15,0.1)', tension: 0.3, fill: true }] },
-  options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false } } }
+  data: {
+  labels: chartData.labels,
+  datasets: [{
+  label: 'Suhu (°C)',
+  data: chartData.temps,
+  borderColor: buttonColor,
+  backgroundColor: 'rgba(0,122,255,0.1)',
+  tension: 0.3,
+  fill: true,
+  pointBackgroundColor: buttonColor,
+  pointBorderColor: '#fff',
+  pointRadius: 3
+  }]
+  },
+  options: {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: {
+  legend: { display: false },
+  tooltip: { callbacks: { label: (ctx) => `${ctx.raw}°C` } }
+  },
+  scales: {
+  y: { beginAtZero: false, title: { display: true, text: 'Suhu (°C)', color: 'var(--tg-theme-hint-color)' } },
+  x: { title: { display: true, text: 'Waktu', color: 'var(--tg-theme-hint-color)' }, ticks: { autoSkip: true, maxTicksLimit: 6 } }
+  }
+  }
   });
   } catch (err) {
   console.error('drawChart error:', err);
+  alert(err.message);
   }
   }
 
@@ -341,10 +385,14 @@
   const windSpeed = details.wind_speed ? (details.wind_speed * 3.6).toFixed(1) : '-';
   const windDeg = details.wind_deg;
   const windDir = getWindDirection(windDeg);
+  const pressure = details.pressure ? `${details.pressure} hPa` : '-';
+  const visibility = details.visibility ? (details.visibility / 1000).toFixed(1) + ' km' : '-';
+  const uv = details.uvi !== undefined ? details.uvi : '-';
+  const clouds = details.clouds !== undefined ? `${details.clouds}%` : '-';
   const html = `
   <div class="text-center mb-3">
   <div>${details.date || ''} ${details.time || ''}</div>
-  <img src="https://openweathermap.org/img/wn/${details.icon}@2x.png" width="80">
+  <img src="https://openweathermap.org/img/wn/${details.icon}@4x.png" width="80" height="80">
   <h4>${details.temp}°C</h4>
   <p class="text-muted">${details.description}</p>
   </div>
@@ -353,13 +401,17 @@
   <div class="col-6"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${details.humidity ?? '-'}%</div><div class="label">Kelembaban</div></div></div>
   <div class="col-6"><div class="detail-item"><i class="bi bi-droplet-half"></i><div class="value">${pop}%</div><div class="label">Peluang Hujan</div></div></div>
   <div class="col-6"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${windSpeed} km/j ${windDeg ? `<span style="display:inline-block;transform:rotate(${windDeg}deg)"><i class="bi bi-arrow-up-short"></i></span>` : ''}</div><div class="label">Angin (${windDir})</div></div></div>
+  <div class="col-6"><div class="detail-item"><i class="bi bi-speedometer2"></i><div class="value">${pressure}</div><div class="label">Tekanan</div></div></div>
+  <div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">${visibility}</div><div class="label">Jarak Pandang</div></div></div>
+  <div class="col-6"><div class="detail-item"><i class="bi bi-brightness-high"></i><div class="value">${uv}</div><div class="label">Indeks UV</div></div></div>
+  <div class="col-6"><div class="detail-item"><i class="bi bi-cloud"></i><div class="value">${clouds}</div><div class="label">Awan</div></div></div>
   </div>
   `;
   let modal = document.getElementById('globalModal');
   if (!modal) {
   modal = document.createElement('div');
   modal.id = 'globalModal';
-  modal.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);border-radius:20px;padding:20px;max-width:300px;width:90%;z-index:10001;box-shadow:0 4px 20px rgba(0,0,0,0.2);';
+  modal.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);border-radius:20px;padding:20px;max-width:320px;width:90%;z-index:10001;box-shadow:0 4px 20px rgba(0,0,0,0.2);';
   modal.innerHTML = `<div id="globalModalContent"></div><button class="btn btn-sm btn-secondary mt-3" style="width:100%" onclick="this.parentElement.style.display='none'">Tutup</button>`;
   document.body.appendChild(modal);
   }
