@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Weather\Http\Controllers\WeatherController;
 
 Route::prefix('weather')->middleware('auth:sanctum')->name('weather.')->group(function () {
-  Route::get('settings', [WeatherController::class, 'settings'])->name('settings')->middleware('auth:telegram');
+  Route::get('settings', [WeatherController::class, 'settings'])->name('settings');
   Route::post("current", [WeatherController::class, "getWeather"])->name("current");
   Route::post("hourly-forecast", [WeatherController::class, "getHourlyForecast"])->name("hourly-forecast");
   Route::post('air-quality', [WeatherController::class, 'getAirQuality'])->name('air-quality');
