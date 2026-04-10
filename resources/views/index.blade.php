@@ -441,19 +441,27 @@
   box-shadow: 0 10px 30px rgba(0,0,0,0.3);
   border: 1px solid var(--tg-theme-section-separator-color);
   `;
+  // Buat div untuk konten di dalam modal
+  const contentDiv = document.createElement('div');
+  contentDiv.id = 'globalModalContent';
+  modal.appendChild(contentDiv);
   document.body.appendChild(modal);
   }
-  document.getElementById('globalModalContent').innerHTML = html;
+  const contentDiv = document.getElementById('globalModalContent');
+  if (contentDiv) {
+  contentDiv.innerHTML = html;
+  } else {
+  console.error('globalModalContent tidak ditemukan');
+  return;
+  }
   modal.style.display = 'block';
 
-  // Event untuk tombol close
   const closeBtn = document.getElementById('closeModalBtn');
   if (closeBtn) {
-  closeBtn.addEventListener('click', () => {
-  modal.style.display = 'none';
-  });
+  closeBtn.removeEventListener('click', closeModalHandler);
+  const closeModalHandler = () => { modal.style.display = 'none'; };
+  closeBtn.addEventListener('click', closeModalHandler);
   }
-  // Klik di luar modal (background overlay) bisa ditambahkan, tapi cukup tombol close
   } catch (err) {
   handleGlobalError(err, 'showForecastDetail');
   }
