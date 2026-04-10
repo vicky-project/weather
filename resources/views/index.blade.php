@@ -338,8 +338,16 @@
   setTimeout(() => drawChart(chartData), 100);
   return;
   }
-  if (window.tempChart) window.tempChart.destroy();
-  // Ambil warna button dari tema (fallback biru)
+  // Hancurkan chart sebelumnya hanya jika ada dan memiliki method destroy
+  if (window.tempChart && typeof window.tempChart.destroy === 'function') {
+  window.tempChart.destroy();
+  }
+  // Pastikan Chart constructor tersedia
+  if (typeof Chart === 'undefined') {
+  console.warn('Chart.js not loaded yet, retrying...');
+  setTimeout(() => drawChart(chartData), 200);
+  return;
+  }
   const buttonColor = getComputedStyle(document.documentElement).getPropertyValue('--tg-theme-button-color').trim() || '#007aff';
   window.tempChart = new Chart(canvas, {
   type: 'line',
