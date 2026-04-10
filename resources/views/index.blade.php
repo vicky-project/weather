@@ -487,7 +487,7 @@
   </div>
   <hr>
   <div class="form-check form-switch mb-3">
-  <input class="form-check-input" type="checkbox" id="notifications_enabled" ${notifications ? 'checked' : ''}>
+  <input class="form-check-input" type="checkbox" id="notifications_enabled" ${notifications ? 'checked' : ''} value="1">
   <label class="form-check-label" for="notifications_enabled">Aktifkan notifikasi cuaca harian</label>
   </div>
   <button type="submit" class="btn btn-primary w-100">Simpan Pengaturan</button>
