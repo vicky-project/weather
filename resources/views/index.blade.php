@@ -397,11 +397,15 @@
   const visibility = details.visibility ? (details.visibility / 1000).toFixed(1) + ' km' : '-';
   const uv = details.uvi !== undefined ? details.uvi : '-';
   const clouds = details.clouds !== undefined ? `${details.clouds}%` : '-';
+
   const html = `
+  <div style="position:relative; margin-bottom: 10px;">
+  <button id="closeModalBtn" style="position:absolute; top:0; right:0; background:none; border:none; font-size:1.8rem; line-height:1; cursor:pointer; color:var(--tg-theme-hint-color);">&times;</button>
+  </div>
   <div class="text-center mb-3">
-  <div>${details.date || ''} ${details.time || ''}</div>
+  <div style="font-size:0.9rem; color:var(--tg-theme-hint-color);">${details.date || ''} ${details.time || ''}</div>
   <img src="https://openweathermap.org/img/wn/${details.icon}@4x.png" width="80" height="80">
-  <h4>${details.temp}°C</h4>
+  <h4 style="margin: 8px 0;">${details.temp}°C</h4>
   <p class="text-muted">${details.description}</p>
   </div>
   <div class="row g-2">
@@ -415,16 +419,41 @@
   <div class="col-6"><div class="detail-item"><i class="bi bi-cloud"></i><div class="value">${clouds}</div><div class="label">Awan</div></div></div>
   </div>
   `;
+
   let modal = document.getElementById('globalModal');
   if (!modal) {
   modal = document.createElement('div');
   modal.id = 'globalModal';
-  modal.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);border-radius:20px;padding:20px;max-width:320px;width:90%;z-index:10001;box-shadow:0 4px 20px rgba(0,0,0,0.2);';
-  modal.innerHTML = `<div id="globalModalContent"></div><button class="btn btn-sm btn-secondary mt-3" style="width:100%" onclick="this.parentElement.style.display='none'">Tutup</button>`;
+  modal.style.cssText = `
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
+  border-radius: 24px;
+  padding: 20px;
+  max-width: 340px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  z-index: 10001;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  border: 1px solid var(--tg-theme-section-separator-color);
+  `;
   document.body.appendChild(modal);
   }
   document.getElementById('globalModalContent').innerHTML = html;
   modal.style.display = 'block';
+
+  // Event untuk tombol close
+  const closeBtn = document.getElementById('closeModalBtn');
+  if (closeBtn) {
+  closeBtn.addEventListener('click', () => {
+  modal.style.display = 'none';
+  });
+  }
+  // Klik di luar modal (background overlay) bisa ditambahkan, tapi cukup tombol close
   } catch (err) {
   handleGlobalError(err, 'showForecastDetail');
   }
