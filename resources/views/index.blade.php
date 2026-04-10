@@ -99,6 +99,23 @@
   .page-item {
     flex-shrink: 0;
   }
+  .error-container {
+    background-color: var(--tg-theme-secondary-bg-color);
+    border-left: 4px solid #dc3545;
+    padding: 16px;
+    margin: 16px;
+    border-radius: 12px;
+  }
+  .error-container .error-message {
+    color: #dc3545;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .error-container .error-detail {
+    font-size: 0.8rem;
+    color: var(--tg-theme-hint-color);
+    word-break: break-word;
+  }
 </style>
 @endpush
 
@@ -106,7 +123,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   (function() {
-  // Fallback jika window.TelegramApp tidak tersedia
+  // ======================== FALLBACK TELEGRAM APP ========================
   const fallback = {
   fetchWithAuth: async (url, options) => {
   const res = await fetch(url, {
@@ -123,14 +140,42 @@
   renderPagination: () => {}
   };
   const app = window.TelegramApp || fallback;
-  const { fetchWithAuth, showToast, showLoading, hideLoading, escapeHtml, renderPagination } = app;
+  const { fetchWithAuth, showToast, showLoading, hideLoading, escapeHtml } = app;
 
+  // ======================== STATE ========================
   let weatherData = null;
   let forecastData = null;
   let aqiData = null;
   let uvData = null;
   let settingsData = null;
+  let currentView = 'weather'; // 'weather' or 'settings'
 
+  // Helper: log error ke console dan tampilkan di UI
+  function handleGlobalError(error, context = 'Umum') {
+  console.error(`[${context}] Error:`, error);
+  const errorMsg = error.message || String(error);
+  showToast(`Terjadi kesalahan: ${errorMsg}`);
+  // Tampilkan error di area konten jika sedang tidak loading
+  const weatherDiv = document.getElementById('weather-view');
+  const settingsDiv = document.getElementById('settings-view');
+  const loadingDiv = document.getElementById('loading-view');
+  if (weatherDiv && settingsDiv) {
+  const errorHtml = `
+  <div class="error-container">
+  <div class="error-message"><i class="bi bi-exclamation-triangle-fill me-2"></i>Gagal memuat data</div>
+  <div class="error-detail">${escapeHtml(errorMsg)}</div>
+  <button class="btn btn-primary btn-sm mt-3" onclick="location.reload()">Muat Ulang Halaman</button>
+  </div>
+  `;
+  weatherDiv.innerHTML = errorHtml;
+  settingsDiv.innerHTML = errorHtml;
+  weatherDiv.style.display = 'block';
+  settingsDiv.style.display = 'none';
+  loadingDiv.style.display = 'none';
+  }
+  }
+
+  // ======================== FUNGSI UTAMA ========================
   function getWindDirection(deg) {
   if (deg === undefined || deg === null) return '';
   const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -139,8 +184,8 @@
   }
 
   async function loadWeather(lat = null, lon = null, city = null) {
-  showLoading('Memuat data cuaca...');
   try {
+  showLoading('Memuat data cuaca...');
   const body = {};
   if (city) body.city = city;
   else if (lat && lon) { body.latitude = lat; body.longitude = lon; }
@@ -154,11 +199,13 @@
   try {
   const aqiRes = await fetchWithAuth('{{ config("app.url") }}/api/weather/air-quality', { method: 'POST', body: JSON.stringify({ latitude: weatherData.location.latitude, longitude: weatherData.location.longitude }) });
   if (aqiRes.success) aqiData = aqiRes.data;
-  } catch(e) { aqiData = null; }
+  else aqiData = null;
+  } catch(e) { aqiData = null; console.warn('AQI fetch error:', e); }
   try {
   const uvRes = await fetchWithAuth('{{ config("app.url") }}/api/weather/uv-index', { method: 'POST', body: JSON.stringify({ latitude: weatherData.location.latitude, longitude: weatherData.location.longitude }) });
   if (uvRes.success) uvData = uvRes.data;
-  } catch(e) { uvData = null; }
+  else uvData = null;
+  } catch(e) { uvData = null; console.warn('UV fetch error:', e); }
   }
 
   const forecastRes = await fetchWithAuth('{{ config("app.url") }}/api/weather/hourly-forecast', { method: 'POST', body: JSON.stringify({ ...body, timezone_offset: weatherData.location.timezone_offset || 0 }) });
@@ -167,10 +214,7 @@
 
   renderWeatherView();
   } catch (err) {
-  showToast('Error: ' + err.message);
-  document.getElementById('weather-view').innerHTML = `<div class="alert alert-danger m-3">Gagal memuat cuaca: ${err.message}<br><button class="btn btn-primary mt-2" onclick="location.reload()">Coba Lagi</button></div>`;
-  document.getElementById('weather-view').style.display = 'block';
-  document.getElementById('loading-view').style.display = 'none';
+  handleGlobalError(err, 'loadWeather');
   } finally {
   hideLoading();
   }
@@ -180,29 +224,33 @@
   try {
   const res = await fetchWithAuth('{{ config("app.url") }}/api/weather/settings');
   settingsData = res.data || {};
-  } catch(e) { settingsData = {}; }
+  } catch(e) {
+  console.warn('loadSettings error:', e);
+  settingsData = {};
+  }
   }
 
   async function saveSettings(formData) {
-  showLoading('Menyimpan...');
   try {
+  showLoading('Menyimpan...');
   const res = await fetchWithAuth('{{ config("app.url") }}/api/weather/settings', { method: 'POST', body: JSON.stringify(formData) });
   if (res.success) {
   showToast('Pengaturan disimpan');
   await loadSettings();
   showWeatherView();
   } else {
-  showToast(res.message || 'Gagal menyimpan');
+  throw new Error(res.message || 'Gagal menyimpan');
   }
-  } catch(err) {
-  showToast('Error: ' + err.message);
+  } catch (err) {
+  handleGlobalError(err, 'saveSettings');
   } finally {
   hideLoading();
   }
   }
 
   function renderWeatherView() {
-  if (!weatherData) return;
+  try {
+  if (!weatherData) throw new Error('Data cuaca tidak tersedia');
   const w = weatherData;
   const iconUrl = `https://openweathermap.org/img/wn/${w.weather.icon}@2x.png`;
   let html = `
@@ -264,6 +312,7 @@
   document.getElementById('settings-view').style.display = 'none';
   document.getElementById('loading-view').style.display = 'none';
 
+  // Attach event listeners
   document.getElementById('settingsBtn').addEventListener('click', () => showSettingsView());
   document.getElementById('refreshWeatherBtn').addEventListener('click', () => {
   const loc = weatherData.location;
@@ -278,9 +327,13 @@
   });
   });
   if (forecastData && forecastData.chart && forecastData.chart.labels) drawChart(forecastData.chart);
+  } catch (err) {
+  handleGlobalError(err, 'renderWeatherView');
+  }
   }
 
   function drawChart(chartData) {
+  try {
   const canvas = document.getElementById('tempChart');
   if (!canvas) return;
   if (window.tempChart) window.tempChart.destroy();
@@ -289,11 +342,15 @@
   data: { labels: chartData.labels, datasets: [{ label: 'Suhu (°C)', data: chartData.temps, borderColor: '#f1c40f', backgroundColor: 'rgba(241,196,15,0.1)', tension: 0.3, fill: true }] },
   options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false } } }
   });
+  } catch (err) {
+  console.error('drawChart error:', err);
+  }
   }
 
   function showForecastDetail(index) {
-  const item = forecastData.hourly[index];
-  if (!item) return;
+  try {
+  const item = forecastData?.hourly?.[index];
+  if (!item) throw new Error('Data forecast tidak ditemukan');
   const details = item.details || item;
   const pop = details.pop || 0;
   const windSpeed = details.wind_speed ? (details.wind_speed * 3.6).toFixed(1) : '-';
@@ -323,9 +380,13 @@
   }
   document.getElementById('globalModalContent').innerHTML = html;
   modal.style.display = 'block';
+  } catch (err) {
+  handleGlobalError(err, 'showForecastDetail');
+  }
   }
 
   async function showSettingsView() {
+  try {
   if (!settingsData) await loadSettings();
   const city = settingsData.city || '';
   const lat = settingsData.latitude || '';
@@ -385,6 +446,9 @@
   };
   saveSettings(formData);
   });
+  } catch (err) {
+  handleGlobalError(err, 'showSettingsView');
+  }
   }
 
   function showWeatherView() {
@@ -393,9 +457,9 @@
   }
 
   async function loadDefaultLocation() {
-  showLoading('Mengambil lokasi default...');
   try {
-  const settings = await fetchWithAuth('{{ config("app.url") }}/api/weather/settings');
+  showLoading('Mengambil lokasi default...');
+  const settings = await fetchWithAuth('/api/weather/settings');
   settingsData = settings.data || {};
   if (settingsData.city) {
   await loadWeather(null, null, settingsData.city);
@@ -405,6 +469,7 @@
   requestLiveLocation();
   }
   } catch(e) {
+  console.warn('loadDefaultLocation fallback:', e);
   requestLiveLocation();
   } finally {
   hideLoading();
@@ -437,38 +502,48 @@
 
   function requestCurrentLocation() {
   const statusSpan = document.getElementById('locationStatus');
-  statusSpan.innerText = 'Meminta lokasi...';
+  if (statusSpan) statusSpan.innerText = 'Meminta lokasi...';
   const tg = window.Telegram?.WebApp;
   if (tg && tg.LocationManager && typeof tg.LocationManager.getLocation === 'function') {
   tg.LocationManager.getLocation((location) => {
   if (location) {
-  document.getElementById('latitude').value = location.latitude;
-  document.getElementById('longitude').value = location.longitude;
-  document.getElementById('city').value = '';
-  statusSpan.innerText = 'Lokasi berhasil diambil.';
+  const latInput = document.getElementById('latitude');
+  const lonInput = document.getElementById('longitude');
+  const cityInput = document.getElementById('city');
+  if (latInput) latInput.value = location.latitude;
+  if (lonInput) lonInput.value = location.longitude;
+  if (cityInput) cityInput.value = '';
+  if (statusSpan) statusSpan.innerText = 'Lokasi berhasil diambil.';
   } else {
-  statusSpan.innerText = 'Akses ditolak.';
+  if (statusSpan) statusSpan.innerText = 'Akses ditolak.';
   }
   });
   } else {
   if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(
   (pos) => {
-  document.getElementById('latitude').value = pos.coords.latitude;
-  document.getElementById('longitude').value = pos.coords.longitude;
-  document.getElementById('city').value = '';
-  statusSpan.innerText = 'Lokasi berhasil diambil.';
+  const latInput = document.getElementById('latitude');
+  const lonInput = document.getElementById('longitude');
+  const cityInput = document.getElementById('city');
+  if (latInput) latInput.value = pos.coords.latitude;
+  if (lonInput) lonInput.value = pos.coords.longitude;
+  if (cityInput) cityInput.value = '';
+  if (statusSpan) statusSpan.innerText = 'Lokasi berhasil diambil.';
   },
-  () => statusSpan.innerText = 'Gagal mendapatkan lokasi.'
+  () => { if (statusSpan) statusSpan.innerText = 'Gagal mendapatkan lokasi.'; }
   );
   } else {
-  statusSpan.innerText = 'Geolocation tidak didukung.';
+  if (statusSpan) statusSpan.innerText = 'Geolocation tidak didukung.';
   }
   }
   }
 
-  // Mulai aplikasi
+  // ======================== START ========================
+  try {
   loadDefaultLocation();
+  } catch (err) {
+  handleGlobalError(err, 'startup');
+  }
   })();
 </script>
 @endpush
