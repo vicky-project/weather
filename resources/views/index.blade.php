@@ -444,7 +444,7 @@
   async function loadDefaultLocation() {
   try {
   showLoading('Mengambil lokasi default...');
-  const settings = await fetchWithAuth('/api/weather/settings');
+  const settings = await fetchWithAuth('{{ config("app.url") }}/api/weather/settings');
   settingsData = settings.data || {};
   if (settingsData.city) {
   await loadWeather(null, null, settingsData.city);
