@@ -124,23 +124,7 @@
 <script>
   (function() {
   // ======================== FALLBACK TELEGRAM APP ========================
-  const fallback = {
-  fetchWithAuth: async (url, options) => {
-  const res = await fetch(url, {
-  ...options,
-  headers: { 'Content-Type': 'application/json', ...options.headers }
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-  },
-  showToast: (msg) => alert(msg),
-  showLoading: () => {},
-  hideLoading: () => {},
-  escapeHtml: (str) => str?.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])) || '',
-  renderPagination: () => {}
-  };
-  const app = window.TelegramApp || fallback;
-  const { fetchWithAuth, showToast, showLoading, hideLoading, escapeHtml } = app;
+  const { fetchWithAuth, showToast, showLoading, hideLoading, escapeHtml } = window.TelegramApp;
 
   // ======================== STATE ========================
   let weatherData = null;
@@ -153,6 +137,7 @@
   // Helper: log error ke console dan tampilkan di UI
   function handleGlobalError(error, context = 'Umum') {
   console.error(`[${context}] Error:`, error);
+  alert(error.message);
   const errorMsg = error.message || String(error);
   showToast(`Terjadi kesalahan: ${errorMsg}`);
   // Tampilkan error di area konten jika sedang tidak loading
