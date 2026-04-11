@@ -213,12 +213,11 @@
 
   if (weatherData.location.latitude && weatherData.location.longitude) {
   try {
-  alert(weatherData.location.latitude + ' ' + weatherData.location.longitude);
   const aqiRes = await fetchWithAuth('{{ config("app.url") }}/api/weather/air-quality', { method: 'POST', body: JSON.stringify({ latitude: weatherData.location.latitude, longitude: weatherData.location.longitude }) });
   if (aqiRes.success) aqiData = aqiRes.data;
   else aqiData = null;
   } catch(e) {
-  alert(e.message);
+  alert(e);
   aqiData = null;
   console.warn('AQI fetch error:', e);
   }
