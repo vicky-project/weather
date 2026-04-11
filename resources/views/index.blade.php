@@ -83,14 +83,20 @@
     font-weight: 300;
   }
   .detail-item {
-    background-color: var(--tg-theme-secondary-bg-color);
-    border-radius: 12px;
-    padding: 10px;
+    background-color: var(--tg-theme-bg-color) !important;
+    border: 1px solid var(--tg-theme-section-separator-color);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     text-align: center;
   }
   .detail-item i {
     font-size: 1.5rem;
     color: var(--tg-theme-button-color);
+  }
+  .detail-item .value, .detail-item .label {
+    color: var(--tg-theme-text-color);
+  }
+  .detail-item .label {
+    opacity: 0.8;
   }
   /* Perbaiki kontras forecast card */
   .forecast-hour-card {
