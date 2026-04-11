@@ -196,7 +196,6 @@
   if (deg === undefined || deg === null) return '';
   const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   const idx = Math.round(deg / 45) % 8;
-  alert(idx);
   return directions[idx];
   }
 
@@ -273,6 +272,9 @@
   if (!weatherData) throw new Error('Data cuaca tidak tersedia');
   const w = weatherData;
   const iconUrl = `https://openweathermap.org/img/wn/${w.weather.icon}@2x.png`;
+  // Data tekanan dan jarak pandang
+  const visibilityKm = w.current.visibility ? (w.current.visibility / 1000).toFixed(1) : '-';
+  const pressureVal = w.current.pressure ? `${w.current.pressure} hPa` : '-';
   let html = `
   <div class="card shadow">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -294,6 +296,10 @@
   <div class="col-4"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${w.current.humidity}%</div><div class="label">Kelembaban</div></div></div>
   <div class="col-4"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${(w.current.wind_speed * 3.6).toFixed(1)} km/j</div><div class="label">${getWindDirection(w.current.wind_deg)}</div></div></div>
   <div class="col-4"><div class="detail-item"><i class="bi bi-cloud"></i><div class="value">${w.current.clouds}%</div><div class="label">Awan</div></div></div>
+  </div>
+  <div class="row g-2 mb-3">
+  <div class="col-6"><div class="detail-item"><i class="bi bi-speedometer2"></i><div class="value">${pressureVal}</div><div class="label">Tekanan</div></div></div>
+  <div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">${visibilityKm} km</div><div class="label">Jarak Pandang</div></div></div>
   </div>
   <div class="row g-2 mb-3">
   <div class="col-6"><div class="detail-item"><i class="bi bi-sunrise"></i><div class="value">${w.sun.rise}</div><div class="label">Terbit</div></div></div>
