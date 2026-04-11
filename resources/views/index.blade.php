@@ -102,7 +102,7 @@
   }
   /* Perbaiki kontras forecast card */
   .forecast-hour-card {
-    background-color: var(--tg-theme-secondary-bg-color) !important;
+    background-color: var(--tg-theme-bg-color) !important;
     border: 1px solid var(--tg-theme-section-separator-color) !important;
     border-radius: 12px;
     padding: 8px;
