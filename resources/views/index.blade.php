@@ -217,7 +217,6 @@
   if (aqiRes.success) aqiData = aqiRes.data;
   else aqiData = null;
   } catch(e) {
-  alert(e);
   aqiData = null;
   console.warn('AQI fetch error:', e);
   }

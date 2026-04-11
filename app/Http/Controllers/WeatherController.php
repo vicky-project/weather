@@ -100,6 +100,10 @@ class WeatherController extends Controller
     if (!$lat || !$lon) {
       return response()->json(['success' => false, 'message' => 'Koordinat diperlukan'], 400);
     }
+    \Log::debug("Aur quality", [
+      "latitude" => $lat,
+      "longitude" => $lon
+    ]);
 
     $data = $this->weatherService->getAirQuality((float)$lat, (float)$lon);
     if (!$data) {
