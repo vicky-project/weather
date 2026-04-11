@@ -282,7 +282,9 @@
   const iconUrl = `https://openweathermap.org/img/wn/${w.weather.icon}@2x.png`;
   // Data tekanan dan jarak pandang
   const visibilityKm = w.current.visibility ? (w.current.visibility / 1000).toFixed(1) : '-';
-  const pressureVal = w.current.pressure ? `${w.current.pressure} hPa` : '-';
+  const pressureVal = w.current.pressure ? `${w.current.pressure} mBar` : '-';
+  const windDeg = w.current.wind_deg;
+  const windDir = getWindDirection(windDeg);
   let html = `
   <div class="card shadow">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -302,7 +304,7 @@
   </div>
   <div class="row g-2 mb-3">
   <div class="col-4"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">${w.current.humidity}%</div><div class="label">Kelembaban</div></div></div>
-  <div class="col-4"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${(w.current.wind_speed * 3.6).toFixed(1)} km/j</div><div class="label">${getWindDirection(w.current.wind_deg)}</div></div></div>
+  <div class="col-4"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">${(w.current.wind_speed * 3.6).toFixed(1)} km/j ${windDeg ? `<span style="display:inline-block;transform:rotate(${windDeg}deg)"><i class="bi bi-arrow-up-short"></i></span>` : ''}</div></div></div>
   <div class="col-4"><div class="detail-item"><i class="bi bi-cloud"></i><div class="value">${w.current.clouds}%</div><div class="label">Awan</div></div></div>
   </div>
   <div class="row g-2 mb-3">
@@ -429,7 +431,7 @@
   const windSpeed = details.wind_speed ? (details.wind_speed * 3.6).toFixed(1) : '-';
   const windDeg = details.wind_deg;
   const windDir = getWindDirection(windDeg);
-  const pressure = details.pressure ? `${details.pressure} hPa` : '-';
+  const pressure = details.pressure ? `${details.pressure} mBar` : '-';
   const visibility = details.visibility ? (details.visibility / 1000).toFixed(1) + ' km' : '-';
   const uv = details.uvi !== undefined ? details.uvi : '-';
   const clouds = details.clouds !== undefined ? `${details.clouds}%` : '-';
