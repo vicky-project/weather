@@ -17,7 +17,7 @@
     <!-- Modal Bootstrap untuk detail forecast -->
     <div class="modal fade" id="forecastModal" tabindex="-1" aria-labelledby="forecastModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color);">
+        <div class="modal-content">
           <div class="modal-header" style="border-bottom-color: var(--tg-theme-section-separator-color);">
             <h5 class="modal-title" id="forecastModalLabel">Detail Cuaca</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: invert(1);"></button>
