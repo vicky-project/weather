@@ -193,6 +193,7 @@
 
   // ======================== FUNGSI UTAMA ========================
   function getWindDirection(deg) {
+  alert(deg);
   if (deg === undefined || deg === null) return '';
   const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   const idx = Math.round(deg / 45) % 8;
