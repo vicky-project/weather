@@ -87,6 +87,8 @@
     border: 1px solid var(--tg-theme-section-separator-color);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     text-align: center;
+    border-radius: 12px;
+    padding: 10px;
   }
   .detail-item i {
     font-size: 1.5rem;
