@@ -19,17 +19,13 @@ class WeatherController extends Controller
   * Tampilkan halaman utama weather.
   */
   public function index(Request $request) {
-    $tgUser = $request->get('telegram_user'); // Dari middleware
-    $telegramUser = TelegramUser::find($tgUser["id"]);
-
-    return view('weather::index', compact('telegramUser'));
+    return view('weather::index');
   }
 
   public function settings(Request $request) {
-    $tgUser = $request->get('telegram_user'); // Dari middleware
-    $telegramUser = TelegramUser::find($tgUser["id"]);
+    $telegramUser = $request->user('sanctum'); // Dari middleware
     $settings = $this->weatherService->getUserSettings($telegramUser->id);
-    return view("weather::settings", compact("telegramUser", "settings"));
+    return response()->json(["data" => $settings]);
   }
 
   /**
@@ -37,7 +33,7 @@ class WeatherController extends Controller
   * Bisa berdasarkan pengguna yang sudah login (dari middleware) atau input manual.
   */
   public function getWeather(Request $request) {
-    $telegramUser = $request->get('telegram_user'); // Bisa null jika tidak ada
+    $telegramUser = $request->user('sanctum'); // Bisa null jika tidak ada
 
     $data = null;
 
@@ -68,7 +64,7 @@ class WeatherController extends Controller
   }
 
   public function getHourlyForecast(Request $request) {
-    $telegramUser = $request->get('telegram_user');
+    $telegramUser = $request->user('sanctum');
     $timezoneOffset = (int) $request->input('timezone_offset', 0);
 
     $location = null;
@@ -133,8 +129,7 @@ class WeatherController extends Controller
   * Simpan pengaturan cuaca pengguna.
   */
   public function saveSettings(Request $request) {
-    $tgUser = $request->get('telegram_user');
-    $telegramUser = TelegramUser::find($tgUser["id"]);
+    $telegramUser = $request->user('sanctum');
 
     if (!$telegramUser) {
       return response()->json([
