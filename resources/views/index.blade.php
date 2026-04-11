@@ -22,7 +22,7 @@
             <h5 class="modal-title" id="forecastModalLabel">Detail Cuaca</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: invert(1);"></button>
           </div>
-          <div class="modal-body" id="forecastModalBody">
+          <div class="modal-body" id="forecastModalBody" style="background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color);">
             <!-- konten akan diisi JavaScript -->
           </div>
           <div class="modal-footer" style="border-top-color: var(--tg-theme-section-separator-color);">
