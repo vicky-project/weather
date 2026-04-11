@@ -97,13 +97,13 @@ class WeatherController extends Controller
   public function getAirQuality(Request $request) {
     $lat = $request->input('latitude');
     $lon = $request->input('longitude');
-    if (!$lat || !$lon) {
-      return response()->json(['success' => false, 'message' => 'Koordinat diperlukan'], 400);
-    }
-    \Log::debug("Aur quality", [
+    \Log::debug("Air quality", [
       "latitude" => $lat,
       "longitude" => $lon
     ]);
+    if (!$lat || !$lon) {
+      return response()->json(['success' => false, 'message' => 'Koordinat diperlukan'], 400);
+    }
 
     $data = $this->weatherService->getAirQuality((float)$lat, (float)$lon);
     if (!$data) {
