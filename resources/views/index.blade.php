@@ -568,8 +568,9 @@
   async function requestLiveLocation() {
   showLoading('Meminta lokasi...');
   const tg = window.Telegram?.WebApp;
-  await tg.LocationManager?.init();
-  if (tg && tg.LocationManager && typeof tg.LocationManager.getLocation === 'function') {
+  const teleLocation = tg.LocationManager;
+  await teleLocation.init(() => console.log('Initialized.'));
+  if (teleLocation && typeof teleLocation.getLocation === 'function') {
   tg.LocationManager.getLocation((location) => {
   if (location) loadWeather(location.latitude, location.longitude);
   else browserGeolocation();
