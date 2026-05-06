@@ -569,6 +569,7 @@
   showLoading('Meminta lokasi...');
   const tg = window.Telegram?.WebApp;
   const userData = tg.initData;
+  console.log(userData);
   const teleLocation = tg.LocationManager;
   await teleLocation.init(() => console.log('Initialized.'));
   if (teleLocation && typeof teleLocation.getLocation === 'function') {
