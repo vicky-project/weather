@@ -568,7 +568,7 @@
   function requestLiveLocation() {
   showLoading('Meminta lokasi...');
   const tg = window.Telegram?.WebApp;
-  tg.LocationManager.init();
+  tg.LocationManager?.init();
   if (tg && tg.LocationManager && typeof tg.LocationManager.getLocation === 'function') {
   tg.LocationManager.getLocation((location) => {
   if (location) loadWeather(location.latitude, location.longitude);
