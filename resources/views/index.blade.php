@@ -571,7 +571,7 @@
   const teleLocation = tg.LocationManager;
   await teleLocation.init(() => console.log('Initialized.'));
   if (teleLocation && typeof teleLocation.getLocation === 'function') {
-  tg.LocationManager.getLocation((location) => {
+  teleLocation.getLocation((location) => {
   if (location) loadWeather(location.latitude, location.longitude);
   else browserGeolocation();
   });
