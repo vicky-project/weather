@@ -12,23 +12,26 @@
   // ======================== DATA FETCHING ========================
   async function fetchSettings() {
     try {
+      Core.showLoading('Memuat pengaturan...');
       var res = await Core.api.get('/api/weather/settings');
+      console.log('Settings response:', res); // Tambahkan log
       if (res.success) {
         Core.setState({
           settings: res.data
         });
         return res.data;
       } else {
-        console.error(res);
         throw new Error(res.message || 'Gagal memuat pengaturan');
       }
     } catch (err) {
-      console.error(err);
+      console.error('fetchSettings error:', err);
       Core.showToast('Gagal memuat pengaturan: ' + err.message, 'danger');
       Core.setState({
         settings: {}
       });
       return {};
+    } finally {
+      Core.hideLoading();
     }
   }
 
@@ -150,15 +153,21 @@
         reject(new Error('Telegram LocationManager tidak tersedia'));
         return;
       }
-      // Inisialisasi (diasumsikan sudah diinit di layout, tapi amankan)
+      // Inisialisasi ulang (aman meski sudah diinit)
       tg.LocationManager.init(function() {
+        console.log('LocationManager init callback');
+        var timeoutId = setTimeout(function() {
+          reject(new Error('Timeout: Lokasi tidak didapatkan dalam 10 detik'));
+        }, 10000);
         tg.LocationManager.getLocation(function(location) {
+          clearTimeout(timeoutId);
           if (location && location.latitude && location.longitude) {
+            console.log('Telegram location success:', location);
             resolve( {
               lat: location.latitude, lon: location.longitude
             });
           } else {
-            reject(new Error('Akses lokasi ditolak'));
+            reject(new Error('Akses lokasi ditolak atau data kosong'));
           }
         });
       });
@@ -171,14 +180,19 @@
         reject(new Error('Geolocation tidak didukung browser ini'));
         return;
       }
+      var timeoutId = setTimeout(function() {
+        reject(new Error('Browser geolocation timeout'));
+      }, 10000);
       navigator.geolocation.getCurrentPosition(
         function(pos) {
+          clearTimeout(timeoutId);
           resolve( {
             lat: pos.coords.latitude, lon: pos.coords.longitude
           });
         },
         function(err) {
-          reject(new Error('Gagal mendapatkan lokasi: ' + err.message));
+          clearTimeout(timeoutId);
+          reject(new Error('Browser geolocation error: ' + err.message));
         }
       );
     });
@@ -188,31 +202,44 @@
     try {
       Core.showLoading('Memuat pengaturan...');
       var settings = await fetchSettings();
+      console.log('Settings after fetch:',
+        settings);
       if (settings.city) {
         await loadWeatherFromLocation(null, null, settings.city);
       } else if (settings.latitude && settings.longitude) {
         await loadWeatherFromLocation(settings.latitude, settings.longitude);
       } else {
-        // Coba ambil lokasi langsung
+        // Tidak ada pengaturan lokasi, coba geolocation
         Core.showLoading('Meminta lokasi...');
         try {
           var loc = await getTelegramLocation();
           await loadWeatherFromLocation(loc.lat, loc.lon);
         } catch (errTele) {
-          console.warn('Telegram location gagal, fallback ke browser:', errTele);
+          console.warn('Telegram location gagal:', errTele);
+          Core.showToast('Telegram location gagal: ' + errTele.message, 'warning');
           try {
             var locBrowser = await getBrowserLocation();
             await loadWeatherFromLocation(locBrowser.lat, locBrowser.lon);
           } catch (errBrowser) {
-            throw new Error('Tidak dapat mengakses lokasi. Silakan atur lokasi di pengaturan.');
+            console.error('Browser geolocation juga gagal:', errBrowser);
+            throw new Error('Tidak dapat mengakses lokasi. Silakan atur lokasi manual di pengaturan.');
           }
         }
       }
     } catch (err) {
+      console.error('loadDefaultLocation error:', err);
       Core.setState({
         loading: false, error: err.message
       });
       Core.showToast(err.message, 'danger');
+      // Tampilkan settings view agar user bisa mengisi lokasi manual
+      Core.setState({
+        currentView: 'settings'
+      });
+      // Pastikan settings view sudah memiliki data (walaupun kosong)
+      if (!Core.getState().settings) Core.setState({
+        settings: {}
+      });
     } finally {
       Core.hideLoading();
     }
