@@ -1,4 +1,4 @@
-// main.js - version fix
+// main.js - version fix with guaranteed timeout & fallback to settings
 (function(window, document, undefined) {
   'use strict';
 
@@ -144,20 +144,21 @@
     }
   }
 
-  // ======================== GEOLOCATION (dengan timeout) ========================
-  function getTelegramLocation() {
+  // ======================== GEOLOCATION DENGAN TIMEOUT PASTI ========================
+  function getTelegramLocationWithTimeout(timeoutMs) {
     return new Promise(function(resolve, reject) {
       var tg = window.Telegram && window.Telegram.WebApp;
       if (!tg || !tg.LocationManager) {
         reject(new Error('Telegram LocationManager tidak tersedia'));
         return;
       }
+      var timeoutId = setTimeout(function() {
+        reject(new Error('Timeout: Telegram location tidak merespon dalam ' + timeoutMs + ' ms'));
+      }, timeoutMs);
+
       // Inisialisasi (bisa sudah diinit, aman dipanggil ulang)
       tg.LocationManager.init(function() {
-        console.log('Telegram LocationManager init done');
-        var timeoutId = setTimeout(function() {
-          reject(new Error('Timeout: Telegram location tidak merespon dalam 10 detik'));
-        }, 10000);
+        console.log('Telegram LocationManager init callback');
         tg.LocationManager.getLocation(function(location) {
           clearTimeout(timeoutId);
           console.log('Telegram getLocation callback:', location);
@@ -173,15 +174,15 @@
     });
   }
 
-  function getBrowserLocation() {
+  function getBrowserLocationWithTimeout(timeoutMs) {
     return new Promise(function(resolve, reject) {
       if (!navigator.geolocation) {
         reject(new Error('Geolocation tidak didukung browser ini'));
         return;
       }
       var timeoutId = setTimeout(function() {
-        reject(new Error('Browser geolocation timeout (10 detik)'));
-      }, 10000);
+        reject(new Error('Timeout: Browser geolocation tidak merespon dalam ' + timeoutMs + ' ms'));
+      }, timeoutMs);
       navigator.geolocation.getCurrentPosition(
         function(pos) {
           clearTimeout(timeoutId);
@@ -212,8 +213,7 @@
         } else if (newSettings.latitude && newSettings.longitude) {
           await loadWeatherFromLocation(newSettings.latitude, newSettings.longitude);
         } else {
-          // Jika pengaturan kosong, coba geolocation lagi
-          await loadFromGeolocation(); // fungsi baru
+          await loadFromGeolocation(); // ulang geolocation jika settings kosong
         }
         Core.setState({
           currentView: 'weather'
@@ -228,20 +228,24 @@
     }
   }
 
-  // Fungsi khusus untuk mencoba geolocation dan fallback ke settings
+  // Fungsi untuk mencoba geolocation dengan timeout dan fallback ke settings
   async function loadFromGeolocation() {
+    var TIMEOUT_MS = 15000; // 15 detik
     try {
-      Core.showLoading('Meminta lokasi...');
+      Core.showLoading('Meminta lokasi... (maks ' + (TIMEOUT_MS/1000) + ' detik)');
       var loc;
       try {
-        loc = await getTelegramLocation();
+        loc = await getTelegramLocationWithTimeout(TIMEOUT_MS);
+        console.log('Telegram location sukses', loc);
       } catch (eTele) {
         console.warn('Telegram location gagal:', eTele);
-        Core.showToast('Telegram location gagal, mencoba browser...', 'warning');
+        Core.showToast('Telegram: ' + eTele.message, 'warning');
         try {
-          loc = await getBrowserLocation();
+          loc = await getBrowserLocationWithTimeout(TIMEOUT_MS);
+          console.log('Browser location sukses', loc);
         } catch (eBrowser) {
-          throw new Error('Geolocation gagal: ' + eBrowser.message);
+          console.error('Browser location juga gagal:', eBrowser);
+          throw new Error('Gagal mendapatkan lokasi: ' + eBrowser.message);
         }
       }
       await loadWeatherFromLocation(loc.lat, loc.lon);
@@ -249,17 +253,14 @@
         currentView: 'weather'
       });
     } catch (err) {
-      console.error('loadFromGeolocation error:', err);
+      console.error('loadFromGeolocation error total:', err);
       Core.setState({
         loading: false, error: err.message
       });
       Core.showToast(err.message, 'danger');
-      // Tampilkan settings view agar user bisa input manual
+      // Tampilkan halaman settings agar user bisa input manual
       Core.setState({
-        currentView: 'settings'
-      });
-      if (!Core.getState().settings) Core.setState({
-        settings: {}
+        currentView: 'settings', settings: Core.getState().settings || {}
       });
     } finally {
       Core.hideLoading();
@@ -276,16 +277,17 @@
       } else if (settings.latitude && settings.longitude) {
         await loadWeatherFromLocation(settings.latitude, settings.longitude);
       } else {
-        // Tidak ada pengaturan lokasi, coba geolocation
+        // Tidak ada pengaturan, coba geolocation dengan timeout
         await loadFromGeolocation();
       }
     } catch (err) {
+      console.error('loadDefaultLocation error:', err);
       Core.setState({
         loading: false, error: err.message
       });
       Core.showToast(err.message, 'danger');
       Core.setState({
-        currentView: 'settings'
+        currentView: 'settings', settings: Core.getState().settings || {}
       });
     } finally {
       Core.hideLoading();
@@ -332,14 +334,14 @@
           var statusSpan = document.getElementById('locationStatus');
           if (statusSpan) statusSpan.innerText = 'Meminta lokasi...';
           try {
-            var loc = await getTelegramLocation();
+            var loc = await getTelegramLocationWithTimeout(10000);
             document.getElementById('latitude').value = loc.lat;
             document.getElementById('longitude').value = loc.lon;
             document.getElementById('city').value = '';
             if (statusSpan) statusSpan.innerText = 'Lokasi berhasil diambil.';
           } catch (err) {
             try {
-              var locBrowser = await getBrowserLocation();
+              var locBrowser = await getBrowserLocationWithTimeout(10000);
               document.getElementById('latitude').value = locBrowser.lat;
               document.getElementById('longitude').value = locBrowser.lon;
               document.getElementById('city').value = '';
