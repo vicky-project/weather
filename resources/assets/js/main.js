@@ -19,9 +19,11 @@
         });
         return res.data;
       } else {
+        console.error(res);
         throw new Error(res.message || 'Gagal memuat pengaturan');
       }
     } catch (err) {
+      console.error(err);
       Core.showToast('Gagal memuat pengaturan: ' + err.message, 'danger');
       Core.setState({
         settings: {}
