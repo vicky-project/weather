@@ -12,9 +12,7 @@
   // ======================== DATA FETCHING ========================
   async function fetchSettings() {
     try {
-      console.log('fetchSettings: mulai');
       var res = await Core.api.get('/api/weather/settings');
-      console.log('fetchSettings response:', res);
       if (res.success) {
         Core.setState({
           settings: res.data
@@ -158,10 +156,8 @@
 
       // Inisialisasi (bisa sudah diinit, aman dipanggil ulang)
       tg.LocationManager.init(function() {
-        console.log('Telegram LocationManager init callback');
         tg.LocationManager.getLocation(function(location) {
           clearTimeout(timeoutId);
-          console.log('Telegram getLocation callback:', location);
           if (location && location.latitude && location.longitude) {
             resolve( {
               lat: location.latitude, lon: location.longitude
@@ -236,13 +232,11 @@
       var loc;
       try {
         loc = await getTelegramLocationWithTimeout(TIMEOUT_MS);
-        console.log('Telegram location sukses', loc);
       } catch (eTele) {
         console.warn('Telegram location gagal:', eTele);
         Core.showToast('Telegram: ' + eTele.message, 'warning');
         try {
           loc = await getBrowserLocationWithTimeout(TIMEOUT_MS);
-          console.log('Browser location sukses', loc);
         } catch (eBrowser) {
           console.error('Browser location juga gagal:', eBrowser);
           throw new Error('Gagal mendapatkan lokasi: ' + eBrowser.message);
@@ -271,7 +265,6 @@
     try {
       Core.showLoading('Memuat pengaturan...');
       var settings = await fetchSettings();
-      console.log('Settings after fetch:', settings);
       if (settings.city) {
         await loadWeatherFromLocation(null, null, settings.city);
       } else if (settings.latitude && settings.longitude) {
