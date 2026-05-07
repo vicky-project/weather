@@ -568,23 +568,47 @@
   async function requestLiveLocation() {
   showLoading('Meminta lokasi...');
   const tg = window.Telegram?.WebApp;
-  const userData = tg.initData;
-  console.log(userData);
-  const teleLocation = tg.LocationManager;
-  await teleLocation.init(() => console.log('Initialized.'));
-  if (teleLocation && typeof teleLocation.getLocation === 'function') {
-  teleLocation.getLocation((location) => {
-  if (location) loadWeather(location.latitude, location.longitude);
-  else browserGeolocation();
+
+  // Jika tidak ada Telegram WebApp, langsung fallback ke browser
+  if (!tg || !tg.LocationManager) {
+  console.warn('Telegram LocationManager not available, fallback to browser geolocation');
+  browserGeolocation();
+  return;
+  }
+
+  // Inisialisasi LocationManager dengan Promise
+  const initLocationManager = () => {
+  return new Promise((resolve) => {
+  tg.LocationManager.init(() => {
+  console.log('LocationManager initialized');
+  resolve();
   });
+  });
+  };
+
+  try {
+  await initLocationManager();
+  // Setelah init, request lokasi
+  tg.LocationManager.getLocation((location) => {
+  if (location && location.latitude && location.longitude) {
+  loadWeather(location.latitude, location.longitude);
   } else {
   browserGeolocation();
   }
+  });
+  } catch (err) {
+  console.error('LocationManager init error:', err);
+  browserGeolocation();
+  }
+
   function browserGeolocation() {
   if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(
   (pos) => loadWeather(pos.coords.latitude, pos.coords.longitude),
-  () => { showToast('Gagal mendapatkan lokasi, silakan atur lokasi default di pengaturan.'); showSettingsView(); }
+  () => {
+  showToast('Gagal mendapatkan lokasi, silakan atur lokasi default di pengaturan.');
+  showSettingsView();
+  }
   );
   } else {
   showToast('Geolocation tidak didukung, silakan atur lokasi manual.');
@@ -596,9 +620,20 @@
   async function requestCurrentLocation() {
   const statusSpan = document.getElementById('locationStatus');
   if (statusSpan) statusSpan.innerText = 'Meminta lokasi...';
+
   const tg = window.Telegram?.WebApp;
-  await tg.LocationManager?.init();
-  if (tg && tg.LocationManager && typeof tg.LocationManager.getLocation === 'function') {
+  if (tg && tg.LocationManager) {
+  // Inisialisasi dulu
+  const initLocationManager = () => {
+  return new Promise((resolve) => {
+  tg.LocationManager.init(() => {
+  console.log('LocationManager initialized');
+  resolve();
+  });
+  });
+  };
+  try {
+  await initLocationManager();
   tg.LocationManager.getLocation((location) => {
   if (location) {
   const latInput = document.getElementById('latitude');
@@ -612,7 +647,12 @@
   if (statusSpan) statusSpan.innerText = 'Akses ditolak.';
   }
   });
+  } catch (err) {
+  console.error(err);
+  if (statusSpan) statusSpan.innerText = 'Gagal inisialisasi LocationManager.';
+  }
   } else {
+  // Fallback ke browser geolocation jika Telegram API tidak tersedia
   if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(
   (pos) => {
@@ -624,7 +664,9 @@
   if (cityInput) cityInput.value = '';
   if (statusSpan) statusSpan.innerText = 'Lokasi berhasil diambil.';
   },
-  () => { if (statusSpan) statusSpan.innerText = 'Gagal mendapatkan lokasi.'; }
+  () => {
+  if (statusSpan) statusSpan.innerText = 'Gagal mendapatkan lokasi.';
+  }
   );
   } else {
   if (statusSpan) statusSpan.innerText = 'Geolocation tidak didukung.';
