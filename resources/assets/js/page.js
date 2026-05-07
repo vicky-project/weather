@@ -157,10 +157,10 @@
     if (!weatherDiv || !settingsDiv || !loadingDiv) return;
 
     var settings = state.settings || {};
-    var city = settings.city || '';
-    var lat = settings.latitude !== undefined ? settings.latitude: '';
-    var lon = settings.longitude !== undefined ? settings.longitude: '';
-    var notifications = settings.notifications_enabled || false;
+    var city = (settings.city && settings.city !== null) ? String(settings.city): '';
+    var lat = (settings.latitude !== undefined && settings.latitude !== null) ? String(settings.latitude): '';
+    var lon = (settings.longitude !== undefined && settings.longitude !== null) ? String(settings.longitude): '';
+    var notifications = settings.notifications_enabled === true;
 
     var html = '<div class="card shadow">' +
     '<div class="card-header d-flex justify-content-between align-items-center">' +
