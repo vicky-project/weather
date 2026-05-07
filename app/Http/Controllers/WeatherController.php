@@ -23,9 +23,20 @@ class WeatherController extends Controller
   }
 
   public function settings(Request $request) {
-    $telegramUser = $request->user('sanctum'); // Dari middleware
-    $settings = $this->weatherService->getUserSettings($telegramUser->id);
-    return response()->json(["data" => $settings]);
+    try {
+      $telegramUser = $request->user('sanctum'); // Dari middleware
+      $settings = $this->weatherService->getUserSettings($telegramUser->id);
+      return response()->json([
+        'success' => true,
+        "data" => $settings
+      ]);
+    } catch(\Exception $e) {
+      return response()->json([
+        'success' => false,
+        "message" => $e->getMessage(),
+        'data' => null
+      ], 500);
+    }
   }
 
   /**

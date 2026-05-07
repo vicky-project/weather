@@ -56,7 +56,7 @@ class WeatherService
     $cacheKey = $this->generateCacheKey($location);
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
-      Log::debug("Weather cache hit", ["key" => $cacheKey]);
+      Log::info("Weather cache hit", ["key" => $cacheKey]);
       return $cached;
     }
 
@@ -154,7 +154,7 @@ class WeatherService
         }
       }
     } catch (Throwable $e) {
-      Log::debug('Langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
+      Log::warning('Langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
     }
 
     // Fallback: geocoding
@@ -347,7 +347,7 @@ class WeatherService
     $cacheKey = 'hourly_forecast_' . $this->generateCacheKey($location) . '_offset_'. $timezoneOffset;
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
-      Log::debug("Hourly forecast cache hit", ["key" => $cacheKey]);
+      Log::info("Hourly forecast cache hit", ["key" => $cacheKey]);
       return $cached;
     }
 
@@ -431,7 +431,7 @@ class WeatherService
         }
       }
     } catch (Throwable $e) {
-      Log::debug('Forecast langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
+      Log::warning('Forecast langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
     }
 
     // Fallback: geocoding
@@ -518,7 +518,7 @@ class WeatherService
     $cacheKey = 'air_quality_' . md5("{$lat},{$lon}");
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
-      Log::debug("Air quality cache hit", ["key" => $cacheKey]);
+      Log::info("Air quality cache hit", ["key" => $cacheKey]);
       return $cached;
     }
 
@@ -602,7 +602,7 @@ class WeatherService
     $cacheKey = 'uv_index_' . md5("{$lat},{$lon}_{$timezone}");
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
-      Log::debug("UV index cache hit", ["key" => $cacheKey]);
+      Log::info("UV index cache hit", ["key" => $cacheKey]);
       return $cached;
     }
 
@@ -737,7 +737,7 @@ class WeatherService
     try {
       $cacheKey = $this->generateCacheKey($location);
       Cache::forget($cacheKey);
-      Log::debug("Weather cache cleared", ["key" => $cacheKey]);
+      Log::info("Weather cache cleared", ["key" => $cacheKey]);
       return true;
     } catch(\Exception $e) {
       Log::error("Failed to clear weather cache");
