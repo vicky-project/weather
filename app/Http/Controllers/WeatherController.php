@@ -76,19 +76,22 @@ class WeatherController extends Controller
   public function getWeather(Request $request) {
     $telegramUser = $request->user();
 
-    $data = null;
+    // Prioritaskan input dari request (city atau koordinat)
+    $city = $request->input('city');
+    $lat = $request->input('latitude');
+    $lon = $request->input('longitude');
 
-    // 1. Jika ada user dan dia punya lokasi default, gunakan itu
-    if ($telegramUser && $this->userHasDefaultLocation($telegramUser)) {
-      $data = $this->weatherService->getWeatherForUser($telegramUser);
-    }
-    // 2. Jika tidak, coba gunakan input manual dari request
-    else {
-      $city = $request->input('city');
-      $lat = $request->input('latitude');
-      $lon = $request->input('longitude');
-
+    if ($city || ($lat && $lon)) {
       $data = $this->weatherService->getWeatherByInput($city, $lat, $lon);
+    }
+    // Jika tidak ada input, gunakan default location user
+    elseif ($telegramUser && $this->userHasDefaultLocation($telegramUser)) {
+      $data = $this->weatherService->getWeatherForUser($telegramUser);
+    } else {
+      return response()->json([
+        'success' => false,
+        'message' => 'Tidak ada lokasi yang diberikan'
+      ], 400);
     }
 
     if (!$data) {
@@ -98,10 +101,7 @@ class WeatherController extends Controller
       ], 500);
     }
 
-    return response()->json([
-      'success' => true,
-      'data' => $data
-    ]);
+    return response()->json(['success' => true, 'data' => $data]);
   }
 
   public function getHourlyForecast(Request $request) {
