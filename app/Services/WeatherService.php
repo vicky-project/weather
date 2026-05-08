@@ -105,7 +105,7 @@ class WeatherService
   */
   protected function getWeatherByCityName(string $city, ?string $countryCode = null): ?array
   {
-    //$city = trim(preg_replace('/^(Kabupaten|Kota)\s+/i', '', $city));
+    $city = trim(preg_replace('/^(Kabupaten|Kota)\s+/i', '', $city));
     // Langsung lakukan geocoding untuk mendapatkan koordinat
     $coordinates = $this->geocodeCity($city, $countryCode);
     if (!$coordinates) {
