@@ -13,10 +13,10 @@ class WeatherService
 {
   protected int $cacheDuration = 900; // 30 menit
   protected string $geocodingUrl = 'http://api.openweathermap.org/geo/1.0/direct';
+  protected string $apiKey;
 
   public function __construct() {
     $this->apiKey = config('weather.openweather.api_key');
-    $this->uviUrl = config("weather.openweather.base_url") . "/3.0/onecall";
   }
 
   /**
@@ -38,7 +38,13 @@ class WeatherService
   {
     $location = [];
     if ($city) {
-      $location['city'] = $city;
+      // Pisahkan nama kota dan country code jika ada (format "Nama Kota, CC")
+      if (preg_match('/^(.+),\s*([A-Z]{2})$/', $city, $matches)) {
+        $location['city'] = trim($matches[1]);
+        $location['country_code'] = $matches[2];
+      } else {
+        $location['city'] = $city;
+      }
     } elseif ($latitude && $longitude) {
       $location['latitude'] = $latitude;
       $location['longitude'] = $longitude;
@@ -87,7 +93,8 @@ class WeatherService
     }
 
     if (isset($location['city'])) {
-      return $this->getWeatherByCityName($location['city']);
+      $countryCode = $location['country_code'] ?? null;
+      return $this->getWeatherByCityName($location['city'], $countryCode);
     }
 
     return null;
@@ -120,7 +127,6 @@ class WeatherService
         return null;
       }
 
-      // Konversi ke object agar sesuai dengan formatWeatherData
       $rawData = json_decode(json_encode($data));
       return $this->formatWeatherData($rawData);
     } catch (Throwable $e) {
@@ -136,12 +142,17 @@ class WeatherService
   /**
   * Dapatkan cuaca berdasarkan nama kota dengan fallback geocoding.
   */
-  protected function getWeatherByCityName(string $city): ?array
+  protected function getWeatherByCityName(string $city, ?string $countryCode = null): ?array
   {
-    // Coba langsung dengan nama kota
+    // Coba langsung dengan nama kota (mungkin + country code jika ada)
+    $query = $city;
+    if ($countryCode) {
+      $query = $city . ',' . $countryCode;
+    }
+
     try {
       $response = Http::get(config("weather.openweather.base_url") . "/weather", [
-        'q' => $city,
+        'q' => $query,
         'units' => 'metric',
         'appid' => $this->apiKey,
       ]);
@@ -158,9 +169,9 @@ class WeatherService
     }
 
     // Fallback: geocoding
-    $coordinates = $this->geocodeCity($city);
+    $coordinates = $this->geocodeCity($city, $countryCode);
     if (!$coordinates) {
-      Log::warning('Geocoding gagal untuk kota', ['city' => $city]);
+      Log::warning('Geocoding gagal untuk kota', ['city' => $city, 'country_code' => $countryCode]);
       return null;
     }
 
@@ -168,13 +179,22 @@ class WeatherService
   }
 
   /**
-  * Geocoding: dapatkan koordinat dari nama kota dengan prioritas Indonesia.
+  * Geocoding: dapatkan koordinat dari nama kota dengan prioritas Indonesia (jika countryCode tidak diberikan).
   */
-  protected function geocodeCity(string $city, ?string $countryCode = 'ID'): ?array
+  protected function geocodeCity(string $city, ?string $countryCode = null): ?array
   {
     try {
-      // 1. Cari di Indonesia terlebih dahulu
-      $indonesianLocation = $this->searchGeocoding($city, $countryCode);
+      // Jika countryCode diberikan, cari spesifik negara itu
+      if ($countryCode) {
+        $result = $this->searchGeocoding($city, $countryCode);
+        if ($result) {
+          return $result;
+        }
+        // Jika gagal dengan negara tertentu, tetap coba global (tanpa filter)
+      }
+
+      // 1. Coba dengan prioritas Indonesia jika countryCode tidak diberikan atau null
+      $indonesianLocation = $this->searchGeocoding($city, 'ID');
       if ($indonesianLocation) {
         return $indonesianLocation;
       }
@@ -267,6 +287,7 @@ class WeatherService
       $score = 0;
       $nameLower = strtolower($loc['name']);
       $country = $loc['country'] ?? '';
+      $state = $loc['state'] ?? '';
 
       if ($nameLower === $searchCityLower) {
         $score += 100;
@@ -275,6 +296,9 @@ class WeatherService
       }
       if ($country === 'ID') {
         $score += 80;
+      }
+      if (stripos($state, $searchCityLower) !== false) {
+        $score += 30;
       }
       if (isset($loc['population'])) {
         $score += min(50, floor($loc['population'] / 1000000));
@@ -344,7 +368,7 @@ class WeatherService
   public function getHourlyForecast($location,
     int $timezoneOffset = 0): ?array
   {
-    $cacheKey = 'hourly_forecast_' . $this->generateCacheKey($location) . '_offset_'. $timezoneOffset;
+    $cacheKey = 'hourly_forecast_' . $this->generateCacheKey($location) . '_offset_' . $timezoneOffset;
     $cached = Cache::get($cacheKey);
     if ($cached !== null) {
       Log::info("Hourly forecast cache hit", ["key" => $cacheKey]);
@@ -370,12 +394,12 @@ class WeatherService
   protected function fetchHourlyForecastFromApi($location, int $timezoneOffset = 0): ?array
   {
     if (isset($location['latitude']) && isset($location['longitude'])) {
-      return $this->getForecastByCoordinates($location['latitude'], $location['longitude'],
-        $timezoneOffset);
+      return $this->getForecastByCoordinates($location['latitude'], $location['longitude'], $timezoneOffset);
     }
 
     if (isset($location['city'])) {
-      return $this->getForecastByCityName($location['city'], $timezoneOffset);
+      $countryCode = $location['country_code'] ?? null;
+      return $this->getForecastByCityName($location['city'], $timezoneOffset, $countryCode);
     }
 
     return null;
@@ -415,11 +439,16 @@ class WeatherService
     }
   }
 
-  protected function getForecastByCityName(string $city, int $timezoneOffset = 0): ?array
+  protected function getForecastByCityName(string $city, int $timezoneOffset = 0, ?string $countryCode = null): ?array
   {
+    $query = $city;
+    if ($countryCode) {
+      $query = $city . ',' . $countryCode;
+    }
+
     try {
       $response = Http::get(config("weather.openweather.base_url") . "/forecast", [
-        'q' => $city,
+        'q' => $query,
         'units' => 'metric',
         'appid' => $this->apiKey,
       ]);
@@ -435,7 +464,7 @@ class WeatherService
     }
 
     // Fallback: geocoding
-    $coordinates = $this->geocodeCity($city);
+    $coordinates = $this->geocodeCity($city, $countryCode);
     if (!$coordinates) {
       return null;
     }
@@ -456,7 +485,6 @@ class WeatherService
     $chartLabels = [];
     $chartTemps = [];
 
-    // Ambil 8 data pertama (24 jam ke depan, interval 3 jam)
     $limit = 8;
     $now = Carbon::now()->addSeconds($timezoneOffset);
     $filtered = [];
@@ -607,7 +635,6 @@ class WeatherService
     }
 
     try {
-      // Menggunakan Open-Meteo API (gratis, tanpa API key)
       $url = "https://api.open-meteo.com/v1/forecast";
       $params = [
         'latitude' => $lat,
@@ -632,7 +659,7 @@ class WeatherService
         return null;
       }
 
-      $uvi = $data['daily']['uv_index_max'][0]; // Nilai UV maksimum hari ini
+      $uvi = $data['daily']['uv_index_max'][0];
       $result = [
         'uvi' => $uvi,
         'level' => $this->getUvLevel($uvi),
@@ -686,7 +713,9 @@ class WeatherService
   protected function generateCacheKey(array $location): string
   {
     if (isset($location['city'])) {
-      return 'weather_' . md5(strtolower(trim($location['city'])));
+      $city = strtolower(trim($location['city']));
+      $country = $location['country_code'] ?? '';
+      return 'weather_' . md5($city . '_' . $country);
     }
     return 'weather_' . md5("{$location['latitude']},{$location['longitude']}");
   }
@@ -730,6 +759,7 @@ class WeatherService
       'city' => $data['default_location']['city'] ?? null,
       'latitude' => $data['default_location']['latitude'] ?? null,
       'longitude' => $data['default_location']['longitude'] ?? null,
+      'country_code' => $data['default_location']['country_code'] ?? null,
       'notifications_enabled' => $data['weather_notifications'] ?? false
     ];
   }
@@ -741,7 +771,7 @@ class WeatherService
       Cache::forget($cacheKey);
       Log::info("Weather cache cleared", ["key" => $cacheKey]);
       return true;
-    } catch(\Exception $e) {
+    } catch (\Exception $e) {
       Log::error("Failed to clear weather cache");
       return false;
     }

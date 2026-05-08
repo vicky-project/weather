@@ -209,17 +209,18 @@ class WeatherController extends Controller
       'notifications_enabled' => 'boolean',
     ]);
 
+    $countryCode = null;
+    $city = $request->input('city');
+    if ($city && preg_match('/^(.+),\s*([A-Z]{2})$/', $city, $matches)) {
+      $city = trim($matches[1]);
+      $countryCode = $matches[2];
+    }
+
     $locationData = [];
-    if ($request->filled('city')) {
-      $countryCode = 'ID';
-      $city = $request->input('city');
-      if ($city && preg_match('/^(.+),\s*([A-Z]{2})$/', $city, $matches)) {
-        $city = trim($matches[1]);
-        $countryCode = $matches[2];
-        $locationData['city'] = $city;
+    if (!empty($city)) {
+      $locationData['city'] = $city;
+      if ($countryCode) {
         $locationData['country_code'] = $countryCode;
-      } else {
-        $locationData['city'] = $city;
       }
     } elseif ($request->filled('latitude') && $request->filled('longitude')) {
       $locationData['latitude'] = (float) $request->latitude;
