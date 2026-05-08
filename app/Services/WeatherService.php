@@ -170,11 +170,11 @@ class WeatherService
   /**
   * Geocoding: dapatkan koordinat dari nama kota dengan prioritas Indonesia.
   */
-  protected function geocodeCity(string $city): ?array
+  protected function geocodeCity(string $city, ?string $countryCode = 'ID'): ?array
   {
     try {
       // 1. Cari di Indonesia terlebih dahulu
-      $indonesianLocation = $this->searchGeocoding($city, 'ID');
+      $indonesianLocation = $this->searchGeocoding($city, $countryCode);
       if ($indonesianLocation) {
         return $indonesianLocation;
       }

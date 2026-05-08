@@ -278,13 +278,53 @@
     '</div>' +
     '<div class="mb-3"><button type="button" class="btn btn-outline-primary" id="autoLocationBtn"><i class="bi bi-geo-alt me-2"></i>Ambil lokasi saat ini</button><span class="text-muted ms-2" id="locationStatus"></span></div>' +
     '<hr>' +
-    '<div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="notifications_enabled" ' + (notifications ? 'checked': '') + '><label class="form-check-label">Aktifkan notifikasi cuaca harian</label></div>' +
+    '<div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="notifications_enabled" ' + (notifications ? 'checked': '') + '><label for="notifications_enabled" class="form-check-label">Aktifkan notifikasi cuaca harian</label></div>' +
     '<button type="submit" class="btn btn-primary w-100">Simpan Pengaturan</button>' +
     '</form></div></div>';
 
     settingsDiv.innerHTML = html;
     weatherDiv.style.display = 'none';
     settingsDiv.style.display = 'block';
+
+    // Autocomplete kota
+    const cityInput = document.getElementById('city');
+    if (cityInput) {
+      const datalistId = 'weather-city-suggestions';
+      cityInput.setAttribute('list', datalistId);
+      let datalist = document.getElementById(datalistId);
+      if (!datalist) {
+        datalist = document.createElement('datalist');
+        datalist.id = datalistId;
+        cityInput.parentNode.appendChild(datalist);
+      }
+
+      let debounceTimer;
+      cityInput.addEventListener('input', function(e) {
+        clearTimeout(debounceTimer);
+        const keyword = e.target.value.trim();
+        if (keyword.length < 2) {
+          datalist.innerHTML = '';
+          return;
+        }
+        debounceTimer = setTimeout(async () => {
+          try {
+            const res = await Core.api.get(`/api/weather/cities/search?q=${encodeURIComponent(keyword)}`);
+            if (res.success && res.data) {
+              datalist.innerHTML = '';
+              res.data.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city.value; // misal "Jakarta, ID"
+                option.textContent = city.label;
+                datalist.appendChild(option);
+              });
+            }
+          } catch (err) {
+            console.warn('Autocomplete gagal:', err);
+          }
+        },
+          300);
+      });
+    }
   }
 
   // Expose UI functions

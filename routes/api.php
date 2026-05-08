@@ -5,6 +5,7 @@ use Modules\Weather\Http\Controllers\WeatherController;
 
 Route::prefix('weather')->middleware('auth:sanctum')->name('weather.')->group(function () {
   Route::get('settings', [WeatherController::class, 'settings'])->name('settings');
+  Route::get('cities/search', [WeatherController::class, 'searchCities'])->name('cities.search');
   Route::post("current", [WeatherController::class, "getWeather"])->name("current");
   Route::post("hourly-forecast", [WeatherController::class, "getHourlyForecast"])->name("hourly-forecast");
   Route::post('air-quality', [WeatherController::class, 'getAirQuality'])->name('air-quality');

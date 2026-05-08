@@ -6,6 +6,7 @@ use Illuminate\Routing\Controller;
 use Modules\Weather\Services\WeatherService;
 use Modules\Telegram\Models\TelegramUser;
 use Illuminate\Http\Request;
+use Nnjeim\World\Models\City;
 
 class WeatherController extends Controller
 {
@@ -39,12 +40,38 @@ class WeatherController extends Controller
     }
   }
 
+
+
+  public function searchCities(Request $request) {
+    $query = $request->input('q');
+    if (strlen($query) < 2) {
+      return response()->json(['success' => true, 'data' => []]);
+    }
+
+    $cities = City::where('name', 'LIKE', $query . '%')
+    ->orWhere('name', 'LIKE', '%' . $query . '%')
+    ->limit(10)
+    ->with('country') // eager loading untuk dapatkan kode negara
+    ->get();
+
+    $results = $cities->map(function ($city) {
+      $countryCode = $city->country->iso2 ?? 'ID';
+      $value = $city->name . ', ' . $countryCode;
+      return [
+        'value' => $value,
+        'label' => $value,
+      ];
+    });
+
+    return response()->json(['success' => true, 'data' => $results]);
+  }
+
   /**
   * API untuk mendapatkan data cuaca.
   * Bisa berdasarkan pengguna yang sudah login (dari middleware) atau input manual.
   */
   public function getWeather(Request $request) {
-    $telegramUser = $request->user('sanctum'); // Bisa null jika tidak ada
+    $telegramUser = $request->user();
 
     $data = null;
 
@@ -75,7 +102,7 @@ class WeatherController extends Controller
   }
 
   public function getHourlyForecast(Request $request) {
-    $telegramUser = $request->user('sanctum');
+    $telegramUser = $request->user();
     $timezoneOffset = (int) $request->input('timezone_offset', 0);
 
     $location = null;
@@ -166,7 +193,7 @@ class WeatherController extends Controller
   * Simpan pengaturan cuaca pengguna.
   */
   public function saveSettings(Request $request) {
-    $telegramUser = $request->user('sanctum');
+    $telegramUser = $request->user();
 
     if (!$telegramUser) {
       return response()->json([
@@ -184,7 +211,16 @@ class WeatherController extends Controller
 
     $locationData = [];
     if ($request->filled('city')) {
-      $locationData['city'] = $request->city;
+      $countryCode = 'ID';
+      $city = $request->input('city');
+      if ($city && preg_match('/^(.+),\s*([A-Z]{2})$/', $city, $matches)) {
+        $city = trim($matches[1]);
+        $countryCode = $matches[2];
+        $locationData['city'] = $city;
+        $locationData['country_code'] = $countryCode;
+      } else {
+        $locationData['city'] = $city;
+      }
     } elseif ($request->filled('latitude') && $request->filled('longitude')) {
       $locationData['latitude'] = (float) $request->latitude;
       $locationData['longitude'] = (float) $request->longitude;
