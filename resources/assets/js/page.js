@@ -1,4 +1,4 @@
-// page.js - Weather (tanpa loading-view)
+// page.js - Weather (dengan showForecastDetail)
 (function(window, document, undefined) {
   'use strict';
 
@@ -8,19 +8,32 @@
     return;
   }
 
+  function getWindDirection(deg) {
+    if (deg === undefined || deg === null) return '';
+    var directions = ['N',
+      'NE',
+      'E',
+      'SE',
+      'S',
+      'SW',
+      'W',
+      'NW'];
+    var idx = Math.round(deg / 45) % 8;
+    return directions[idx];
+  }
+
+  // ======================== RENDER WEATHER VIEW ========================
   function renderWeatherView(state) {
     var weatherDiv = document.getElementById('weather-view');
     var settingsDiv = document.getElementById('settings-view');
     if (!weatherDiv || !settingsDiv) return;
 
-    // Jika masih loading, sembunyikan kedua view (spinner dari Core.showLoading)
     if (state.loading) {
       weatherDiv.style.display = 'none';
       settingsDiv.style.display = 'none';
       return;
     }
 
-    // Error
     if (state.error) {
       weatherDiv.innerHTML = '<div class="error-container">' +
       '<div class="error-message"><i class="bi bi-exclamation-triangle-fill me-2"></i>Gagal memuat data</div>' +
@@ -35,7 +48,6 @@
       return;
     }
 
-    // Tidak ada data cuaca
     if (!state.weather) {
       weatherDiv.innerHTML = '<div class="alert alert-warning">Data cuaca tidak tersedia</div>';
       weatherDiv.style.display = 'block';
@@ -48,8 +60,7 @@
     var visibilityKm = w.current.visibility ? (w.current.visibility / 1000).toFixed(1): '-';
     var pressureVal = w.current.pressure ? w.current.pressure + ' mBar': '-';
     var windDeg = w.current.wind_deg;
-    var windDir = Core.getWindDirection ? Core.getWindDirection(windDeg): '';
-
+    var windDir = getWindDirection(windDeg);
     var windSpeed = (w.current.wind_speed * 3.6).toFixed(1);
 
     var html = '<div class="card shadow">' +
@@ -123,7 +134,6 @@
     weatherDiv.style.display = 'block';
     settingsDiv.style.display = 'none';
 
-    // Chart
     if (state.forecast && state.forecast.chart && state.forecast.chart.labels) {
       setTimeout(function() {
         drawChart(state.forecast.chart);
@@ -193,6 +203,54 @@
     });
   }
 
+  // ======================== SHOW FORECAST DETAIL MODAL ========================
+  function showForecastDetail(index, state) {
+    if (!state.forecast || !state.forecast.hourly || !state.forecast.hourly[index]) {
+      Core.showToast('Data forecast tidak tersedia', 'warning');
+      return;
+    }
+    var item = state.forecast.hourly[index];
+    var details = item.details || item;
+    var pop = details.pop || 0;
+    var windSpeed = details.wind_speed ? (details.wind_speed * 3.6).toFixed(1): '-';
+    var windDeg = details.wind_deg;
+    var windDir = getWindDirection(windDeg);
+    var pressure = details.pressure ? details.pressure + ' mBar': '-';
+    var visibility = details.visibility ? (details.visibility / 1000).toFixed(1) + ' km': '-';
+    var uv = details.uvi !== undefined ? details.uvi: '-';
+    var clouds = details.clouds !== undefined ? details.clouds + '%': '-';
+    var feelsLike = details.feels_like !== undefined ? details.feels_like: '-';
+    var humidity = details.humidity !== undefined ? details.humidity: '-';
+
+    var html = '<div class="text-center mb-3">' +
+    '<div class="text-muted small">' + (details.date || '') + ' ' + (details.time || '') + '</div>' +
+    '<img src="https://openweathermap.org/img/wn/' + details.icon + '@4x.png" width="80" height="80">' +
+    '<h4>' + details.temp + '°C</h4>' +
+    '<p class="text-muted">' + (details.description || '') + '</p>' +
+    '</div>' +
+    '<div class="row g-2">' +
+    '<div class="col-6"><div class="detail-item"><i class="bi bi-thermometer-half"></i><div class="value">' + feelsLike + '°C</div><div class="label">Terasa</div></div></div>' +
+    '<div class="col-6"><div class="detail-item"><i class="bi bi-droplet"></i><div class="value">' + humidity + '%</div><div class="label">Kelembaban</div></div></div>' +
+    '<div class="col-6"><div class="detail-item"><i class="bi bi-droplet-half"></i><div class="value">' + pop + '%</div><div class="label">Peluang Hujan</div></div></div>' +
+    '<div class="col-6"><div class="detail-item"><i class="bi bi-wind"></i><div class="value">' + windSpeed + ' km/j ' + (windDeg ? '<span style="display:inline-block;transform:rotate(' + windDeg + 'deg)"><i class="bi bi-arrow-up-short"></i></span>': '') + '</div><div class="label">Angin (' + windDir + ')</div></div></div>' +
+    '<div class="col-6"><div class="detail-item"><i class="bi bi-speedometer2"></i><div class="value">' + pressure + '</div><div class="label">Tekanan</div></div></div>' +
+    '<div class="col-6"><div class="detail-item"><i class="bi bi-eye"></i><div class="value">' + visibility + '</div><div class="label">Jarak Pandang</div></div></div>' +
+    '<div class="col-6"><div class="detail-item"><i class="bi bi-brightness-high"></i><div class="value">' + uv + '</div><div class="label">Indeks UV</div></div></div>' +
+    '<div class="col-6"><div class="detail-item"><i class="bi bi-cloud"></i><div class="value">' + clouds + '</div><div class="label">Awan</div></div></div>' +
+    '</div>';
+
+    var modalBody = document.getElementById('forecastModalBody');
+    if (modalBody) modalBody.innerHTML = html;
+    var modalEl = document.getElementById('forecastModal');
+    if (modalEl) {
+      var modal = new bootstrap.Modal(modalEl);
+      modal.show();
+    } else {
+      Core.showToast('Modal tidak ditemukan', 'danger');
+    }
+  }
+
+  // ======================== RENDER SETTINGS VIEW ========================
   function renderSettingsView(state) {
     var weatherDiv = document.getElementById('weather-view');
     var settingsDiv = document.getElementById('settings-view');
@@ -229,14 +287,11 @@
     settingsDiv.style.display = 'block';
   }
 
+  // Expose UI functions
   window.WeatherAppUI = {
     renderWeatherView: renderWeatherView,
     renderSettingsView: renderSettingsView,
-    showForecastDetail: function(index, state) {
-      /* implementasi jika perlu */
-    },
-    getWindDirection: function(deg) {
-      /* bisa ditambahkan */
-    }
+    showForecastDetail: showForecastDetail,
+    drawChart: drawChart
   };
 })(window, document);

@@ -95,20 +95,6 @@
     }
   };
 
-  Core.getWindDirection = function(deg) {
-    if (deg === undefined || deg === null) return '';
-    var directions = ['N',
-      'NE',
-      'E',
-      'SE',
-      'S',
-      'SW',
-      'W',
-      'NW'];
-    var idx = Math.round(deg / 45) % 8;
-    return directions[idx];
-  };
-
   // --- Helper yang ekspos ke UI (agar tidak perlu ambil dari TelegramApp) ---
   Core.showToast = showToast;
   Core.showLoading = showLoading;
