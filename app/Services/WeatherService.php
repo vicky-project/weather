@@ -696,7 +696,7 @@ class WeatherService
   */
   protected function getUserDefaultLocation(TelegramUser $telegramUser): ?array
   {
-    $data = $telegramUser->data ?? [];
+    $data = $telegramUser->data['weather'] ?? [];
     return $data['default_location'] ?? null;
   }
 
@@ -705,10 +705,12 @@ class WeatherService
   */
   public function updateUserSettings(TelegramUser $telegramUser, array $locationData, bool $notificationsEnabled): void
   {
-    $currentData = $telegramUser->data ?? [];
+    $data = $telegramUser->data ?? [];
+    $currentData = $data['weather'] ?? [];
     $currentData['default_location'] = $locationData;
     $currentData['weather_notifications'] = $notificationsEnabled;
-    $telegramUser->data = $currentData;
+    $data['weather'] => $currentData
+    $telegramUser->data = $data;
     $telegramUser->save();
 
     Log::info("User weather setting updated.", ["telegram_id" => $telegramUser->telegram_id, "notifications" => $notificationsEnabled]);
@@ -722,7 +724,7 @@ class WeatherService
     if (!$user) {
       return null;
     }
-    $data = $user->data ?? [];
+    $data = $user->data['weather'] ?? [];
     // Buat object untuk view
     return (object) [
       'city' => $data['default_location']['city'] ?? null,

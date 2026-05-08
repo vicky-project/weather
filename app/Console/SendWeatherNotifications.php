@@ -28,7 +28,7 @@ class SendWeatherNotifications extends Command
 
     // Ambil semua user yang mengaktifkan notifikasi cuaca
     $users = TelegramUser::all()->filter(function ($user) {
-      $data = $user->data ?? [];
+      $data = $user->data['weather'] ?? [];
       return ($data['weather_notifications'] ?? false) === true;
     });
 
@@ -46,7 +46,8 @@ class SendWeatherNotifications extends Command
 
     foreach ($users as $user) {
       try {
-        $data = $user->data ?? [];
+        $userData = $user->data ?? [];
+        $data = $userData['weather'] ?? [];
         $defaultLocation = $data['default_location'] ?? [];
 
         if (empty($defaultLocation)) {
@@ -97,7 +98,8 @@ class SendWeatherNotifications extends Command
         }
         $weatherNotificationsSent[$today][$slot] = true;
         $data['weather_notifications_sent'] = $weatherNotificationsSent;
-        $user->data = $data;
+        $userData['weather'] = $data;
+        $user->data = $userData;
         $user->save();
 
         $this->info("Notifikasi cuaca terkirim ke {$user->telegram_id} (slot {$slot})");
