@@ -1,4 +1,4 @@
-// main.js - version fix with guaranteed timeout & fallback to settings
+// main.js - weather with current location button (no auto-save)
 (function(window, document, undefined) {
   'use strict';
 
@@ -9,33 +9,8 @@
     return;
   }
 
-  let isGeolocating = false;
-
-  async function fetchWeatherByCurrentLocation() {
-    if (isGeolocating) {
-      console.log('Geolocation already in progress');
-      return;
-    }
-    isGeolocating = true;
-    try {
-      Core.showLoading('Mendapatkan lokasi terkini...');
-      let location;
-      try {
-        location = await getTelegramLocation(15000);
-      } catch (e) {
-        console.warn('Telegram location gagal, fallback ke browser', e);
-        Core.showToast('Telegram: ' + e.message, 'warning');
-        location = await getBrowserLocation(15000);
-      }
-      // Panggil loadWeather dengan koordinat baru tanpa menyimpan ke settings
-      await loadWeather(location.lat, location.lon);
-    } catch (err) {
-      Core.showToast('Gagal mendapatkan lokasi: ' + err.message, 'danger');
-    } finally {
-      Core.hideLoading();
-      isGeolocating = false;
-    }
-  }
+  // Flag untuk mencegah multiple geolocation request
+  var isGeolocating = false;
 
   // ======================== DATA FETCHING ========================
   async function fetchSettings() {
@@ -170,7 +145,7 @@
     }
   }
 
-  // ======================== GEOLOCATION DENGAN TIMEOUT PASTI ========================
+  // ======================== GEOLOCATION DENGAN TIMEOUT ========================
   function getTelegramLocationWithTimeout(timeoutMs) {
     return new Promise(function(resolve, reject) {
       var tg = window.Telegram && window.Telegram.WebApp;
@@ -181,8 +156,6 @@
       var timeoutId = setTimeout(function() {
         reject(new Error('Timeout: Telegram location tidak merespon dalam ' + timeoutMs + ' ms'));
       }, timeoutMs);
-
-      // Inisialisasi (bisa sudah diinit, aman dipanggil ulang)
       tg.LocationManager.init(function() {
         tg.LocationManager.getLocation(function(location) {
           clearTimeout(timeoutId);
@@ -222,12 +195,44 @@
     });
   }
 
+  // ======================== TOMBOL LOKASI (tanpa simpan ke settings) ========================
+  async function fetchWeatherByCurrentLocation() {
+    if (isGeolocating) {
+      console.log('Geolocation already in progress');
+      return;
+    }
+    isGeolocating = true;
+    var TIMEOUT_MS = 15000;
+    try {
+      Core.showLoading('Mendapatkan lokasi terkini... (maks ' + (TIMEOUT_MS/1000) + ' detik)');
+      var loc;
+      try {
+        loc = await getTelegramLocationWithTimeout(TIMEOUT_MS);
+      } catch (eTele) {
+        console.warn('Telegram location gagal:', eTele);
+        Core.showToast('Telegram: ' + eTele.message, 'warning');
+        try {
+          loc = await getBrowserLocationWithTimeout(TIMEOUT_MS);
+        } catch (eBrowser) {
+          throw new Error('Gagal mendapatkan lokasi: ' + eBrowser.message);
+        }
+      }
+      // Langsung ambil cuaca tanpa menyimpan ke settings
+      await loadWeatherFromLocation(loc.lat, loc.lon);
+    } catch (err) {
+      console.error('fetchWeatherByCurrentLocation error:', err);
+      Core.showToast(err.message, 'danger');
+    } finally {
+      Core.hideLoading();
+      isGeolocating = false;
+    }
+  }
+
   // ======================== SAVE SETTINGS ========================
   async function saveSettings(formData) {
     try {
       Core.showLoading('Menyimpan pengaturan...');
-      var res = await Core.api.post('/api/weather/settings',
-        formData);
+      var res = await Core.api.post('/api/weather/settings', formData);
       if (res.success) {
         Core.showToast('Pengaturan disimpan');
         await fetchSettings();
@@ -237,7 +242,7 @@
         } else if (newSettings.latitude && newSettings.longitude) {
           await loadWeatherFromLocation(newSettings.latitude, newSettings.longitude);
         } else {
-          await loadFromGeolocation(); // ulang geolocation jika settings kosong
+          await loadFromGeolocation();
         }
         Core.setState({
           currentView: 'weather'
@@ -252,9 +257,8 @@
     }
   }
 
-  // Fungsi untuk mencoba geolocation dengan timeout dan fallback ke settings
   async function loadFromGeolocation() {
-    var TIMEOUT_MS = 15000; // 15 detik
+    var TIMEOUT_MS = 15000;
     try {
       Core.showLoading('Meminta lokasi... (maks ' + (TIMEOUT_MS/1000) + ' detik)');
       var loc;
@@ -266,7 +270,6 @@
         try {
           loc = await getBrowserLocationWithTimeout(TIMEOUT_MS);
         } catch (eBrowser) {
-          console.error('Browser location juga gagal:', eBrowser);
           throw new Error('Gagal mendapatkan lokasi: ' + eBrowser.message);
         }
       }
@@ -275,12 +278,11 @@
         currentView: 'weather'
       });
     } catch (err) {
-      console.error('loadFromGeolocation error total:', err);
+      console.error('loadFromGeolocation error:', err);
       Core.setState({
         loading: false, error: err.message
       });
       Core.showToast(err.message, 'danger');
-      // Tampilkan halaman settings agar user bisa input manual
       Core.setState({
         currentView: 'settings', settings: Core.getState().settings || {}
       });
@@ -298,7 +300,6 @@
       } else if (settings.latitude && settings.longitude) {
         await loadWeatherFromLocation(settings.latitude, settings.longitude);
       } else {
-        // Tidak ada pengaturan, coba geolocation dengan timeout
         await loadFromGeolocation();
       }
     } catch (err) {
@@ -319,6 +320,7 @@
   function setupEventDelegation() {
     document.body.addEventListener('click', function(e) {
       var target = e.target;
+      // Tombol lokasi (tanpa simpan settings)
       if (target.id === 'locationBtn' || target.closest('#locationBtn')) {
         fetchWeatherByCurrentLocation();
       } else if (target.id === 'settingsBtn' || target.closest('#settingsBtn')) {
