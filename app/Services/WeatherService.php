@@ -167,6 +167,9 @@ class WeatherService
     // Geocoding dengan country code jika ada
     $coordinates = $this->geocodeCity($normalizedCity, $countryCode);
     if (!$coordinates) {
+      $coordinates = $this->geocodeCity($normalizedCity, null);
+    }
+    if (!$coordinates) {
       Log::warning('Geocoding gagal untuk kota', ['city' => $normalizedCity, 'country_code' => $countryCode]);
       return null;
     }

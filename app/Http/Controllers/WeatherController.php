@@ -27,6 +27,9 @@ class WeatherController extends Controller
     try {
       $telegramUser = $request->user();
       $settings = $this->weatherService->getUserSettings($telegramUser->id);
+      if ($settings && $settings->city && $settings->country_code) {
+        $settings->city = "{$settings->city}, {$settings->country_code}";
+      }
       return response()->json([
         'success' => true,
         "data" => $settings

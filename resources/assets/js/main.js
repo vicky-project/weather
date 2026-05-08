@@ -285,7 +285,15 @@
           UI.renderSettingsView(Core.getState());
         } else if (target.id === 'refreshWeatherBtn' || target.closest('#refreshWeatherBtn')) {
           var state = Core.getState();
-          if (state.weather && state.weather.location) {
+          var settings = state.settings;
+          // Prioritaskan settings jika ada (city dengan country code)
+          if (settings && settings.city) {
+            var cityWithCode = settings.city;
+            if (settings.country_code && !cityWithCode.includes(',')) {
+              cityWithCode = cityWithCode + ', ' + settings.country_code;
+            }
+            loadWeatherFromLocation(null, null, cityWithCode);
+          } else if (state.weather && state.weather.location) {
             var loc = state.weather.location;
             if (loc.latitude && loc.longitude) {
               loadWeatherFromLocation(loc.latitude, loc.longitude);
