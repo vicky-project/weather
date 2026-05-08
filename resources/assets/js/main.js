@@ -1,4 +1,4 @@
-// main.js - weather with current location button (no auto-save)
+// main.js - weather with browser geolocation only
 (function(window, document, undefined) {
   'use strict';
 
@@ -9,7 +9,6 @@
     return;
   }
 
-  // Flag untuk mencegah multiple geolocation request
   var isGeolocating = false;
 
   // ======================== DATA FETCHING ========================
@@ -145,33 +144,8 @@
     }
   }
 
-  // ======================== GEOLOCATION DENGAN TIMEOUT ========================
-  function getTelegramLocationWithTimeout(timeoutMs) {
-    return new Promise(function(resolve, reject) {
-      var tg = window.Telegram && window.Telegram.WebApp;
-      if (!tg || !tg.LocationManager) {
-        reject(new Error('Telegram LocationManager tidak tersedia'));
-        return;
-      }
-      var timeoutId = setTimeout(function() {
-        reject(new Error('Timeout: Telegram location tidak merespon dalam ' + timeoutMs + ' ms'));
-      }, timeoutMs);
-      tg.LocationManager.init(function() {
-        tg.LocationManager.getLocation(function(location) {
-          clearTimeout(timeoutId);
-          if (location && location.latitude && location.longitude) {
-            resolve( {
-              lat: location.latitude, lon: location.longitude
-            });
-          } else {
-            reject(new Error('Akses lokasi ditolak atau data tidak valid'));
-          }
-        });
-      });
-    });
-  }
-
-  function getBrowserLocationWithTimeout(timeoutMs) {
+  // ======================== BROWSER GEOLOCATION ONLY ========================
+  function getBrowserLocation(timeoutMs) {
     return new Promise(function(resolve, reject) {
       if (!navigator.geolocation) {
         reject(new Error('Geolocation tidak didukung browser ini'));
@@ -189,226 +163,209 @@
         },
         function(err) {
           clearTimeout(timeoutId);
-          reject(new Error('Browser geolocation error: ' + err.message));
-        }
-      );
-    });
-  }
-
-  // ======================== TOMBOL LOKASI (tanpa simpan ke settings) ========================
-  async function fetchWeatherByCurrentLocation() {
-    if (isGeolocating) {
-      console.log('Geolocation already in progress');
-      return;
+          var errorMsg = '';
+          switch (err.code) {
+            case err.PERMISSION_DENIED:
+              errorMsg = 'Izin lokasi ditolak. Silakan aktifkan izin lokasi di browser/Telegram.';
+              break;
+            case err.POSITION_UNAVAILABLE:
+              errorMsg = 'Lokasi tidak tersedia. Pastikan GPS aktif dan sinyal kuat.';
+              break;
+            case err.TIMEOUT:
+              errorMsg = 'Waktu habis saat mengambil lokasi. Coba lagi nanti.';
+              break;
+            default:
+              errorMsg = 'Gagal mengambil lokasi: ' + err.message;
+            }
+            reject(new Error(errorMsg));
+          }
+        );
+      });
     }
-    isGeolocating = true;
-    var TIMEOUT_MS = 15000;
-    try {
-      Core.showLoading('Mendapatkan lokasi terkini... (maks ' + (TIMEOUT_MS/1000) + ' detik)');
-      var loc;
-      try {
-        loc = await getTelegramLocationWithTimeout(TIMEOUT_MS);
-      } catch (eTele) {
-        console.warn('Telegram location gagal:', eTele);
-        Core.showToast('Telegram: ' + eTele.message, 'warning');
-        try {
-          loc = await getBrowserLocationWithTimeout(TIMEOUT_MS);
-        } catch (eBrowser) {
-          throw new Error('Gagal mendapatkan lokasi: ' + eBrowser.message);
-        }
+
+    // ======================== TOMBOL LOKASI (tanpa simpan ke settings) ========================
+    async function fetchWeatherByCurrentLocation() {
+      if (isGeolocating) {
+        console.log('Geolocation already in progress');
+        return;
       }
-      // Langsung ambil cuaca tanpa menyimpan ke settings
-      await loadWeatherFromLocation(loc.lat, loc.lon);
-    } catch (err) {
-      console.error('fetchWeatherByCurrentLocation error:', err);
-      Core.showToast(err.message, 'danger');
-    } finally {
-      Core.hideLoading();
-      isGeolocating = false;
+      isGeolocating = true;
+      var TIMEOUT_MS = 15000;
+      try {
+        Core.showLoading('Mendapatkan lokasi terkini... (maks ' + (TIMEOUT_MS/1000) + ' detik)');
+        var loc = await getBrowserLocation(TIMEOUT_MS);
+        await loadWeatherFromLocation(loc.lat, loc.lon);
+      } catch (err) {
+        console.error('fetchWeatherByCurrentLocation error:', err);
+        Core.showToast(err.message, 'danger');
+      } finally {
+        Core.hideLoading();
+        isGeolocating = false;
+      }
     }
-  }
 
-  // ======================== SAVE SETTINGS ========================
-  async function saveSettings(formData) {
-    try {
-      Core.showLoading('Menyimpan pengaturan...');
-      var res = await Core.api.post('/api/weather/settings', formData);
-      if (res.success) {
-        Core.showToast('Pengaturan disimpan');
-        await fetchSettings();
-        var newSettings = Core.getState().settings;
-        if (newSettings.city) {
-          await loadWeatherFromLocation(null, null, newSettings.city);
-        } else if (newSettings.latitude && newSettings.longitude) {
-          await loadWeatherFromLocation(newSettings.latitude, newSettings.longitude);
+    // ======================== SAVE SETTINGS ========================
+    async function saveSettings(formData) {
+      try {
+        Core.showLoading('Menyimpan pengaturan...');
+        var res = await Core.api.post('/api/weather/settings', formData);
+        if (res.success) {
+          Core.showToast('Pengaturan disimpan');
+          await fetchSettings();
+          var newSettings = Core.getState().settings;
+          if (newSettings.city) {
+            await loadWeatherFromLocation(null, null, newSettings.city);
+          } else if (newSettings.latitude && newSettings.longitude) {
+            await loadWeatherFromLocation(newSettings.latitude, newSettings.longitude);
+          } else {
+            await loadFromGeolocation();
+          }
+          Core.setState({
+            currentView: 'weather'
+          });
+        } else {
+          throw new Error(res.message || 'Gagal menyimpan');
+        }
+      } catch (err) {
+        Core.showToast('Error: ' + err.message, 'danger');
+      } finally {
+        Core.hideLoading();
+      }
+    }
+
+    async function loadFromGeolocation() {
+      var TIMEOUT_MS = 15000;
+      try {
+        Core.showLoading('Meminta lokasi... (maks ' + (TIMEOUT_MS/1000) + ' detik)');
+        var loc = await getBrowserLocation(TIMEOUT_MS);
+        await loadWeatherFromLocation(loc.lat, loc.lon);
+        Core.setState({
+          currentView: 'weather'
+        });
+      } catch (err) {
+        console.error('loadFromGeolocation error:', err);
+        Core.setState({
+          loading: false, error: err.message
+        });
+        Core.showToast(err.message, 'danger');
+        Core.setState({
+          currentView: 'settings', settings: Core.getState().settings || {}
+        });
+      } finally {
+        Core.hideLoading();
+      }
+    }
+
+    async function loadDefaultLocation() {
+      try {
+        Core.showLoading('Memuat pengaturan...');
+        var settings = await fetchSettings();
+        if (settings.city) {
+          await loadWeatherFromLocation(null, null, settings.city);
+        } else if (settings.latitude && settings.longitude) {
+          await loadWeatherFromLocation(settings.latitude, settings.longitude);
         } else {
           await loadFromGeolocation();
         }
+      } catch (err) {
+        console.error('loadDefaultLocation error:', err);
         Core.setState({
-          currentView: 'weather'
+          loading: false, error: err.message
         });
-      } else {
-        throw new Error(res.message || 'Gagal menyimpan');
-      }
-    } catch (err) {
-      Core.showToast('Error: ' + err.message, 'danger');
-    } finally {
-      Core.hideLoading();
-    }
-  }
-
-  async function loadFromGeolocation() {
-    var TIMEOUT_MS = 15000;
-    try {
-      Core.showLoading('Meminta lokasi... (maks ' + (TIMEOUT_MS/1000) + ' detik)');
-      var loc;
-      try {
-        loc = await getTelegramLocationWithTimeout(TIMEOUT_MS);
-      } catch (eTele) {
-        console.warn('Telegram location gagal:', eTele);
-        Core.showToast('Telegram: ' + eTele.message, 'warning');
-        try {
-          loc = await getBrowserLocationWithTimeout(TIMEOUT_MS);
-        } catch (eBrowser) {
-          throw new Error('Gagal mendapatkan lokasi: ' + eBrowser.message);
-        }
-      }
-      await loadWeatherFromLocation(loc.lat, loc.lon);
-      Core.setState({
-        currentView: 'weather'
-      });
-    } catch (err) {
-      console.error('loadFromGeolocation error:', err);
-      Core.setState({
-        loading: false, error: err.message
-      });
-      Core.showToast(err.message, 'danger');
-      Core.setState({
-        currentView: 'settings', settings: Core.getState().settings || {}
-      });
-    } finally {
-      Core.hideLoading();
-    }
-  }
-
-  async function loadDefaultLocation() {
-    try {
-      Core.showLoading('Memuat pengaturan...');
-      var settings = await fetchSettings();
-      if (settings.city) {
-        await loadWeatherFromLocation(null, null, settings.city);
-      } else if (settings.latitude && settings.longitude) {
-        await loadWeatherFromLocation(settings.latitude, settings.longitude);
-      } else {
-        await loadFromGeolocation();
-      }
-    } catch (err) {
-      console.error('loadDefaultLocation error:', err);
-      Core.setState({
-        loading: false, error: err.message
-      });
-      Core.showToast(err.message, 'danger');
-      Core.setState({
-        currentView: 'settings', settings: Core.getState().settings || {}
-      });
-    } finally {
-      Core.hideLoading();
-    }
-  }
-
-  // ======================== EVENT DELEGATION ========================
-  function setupEventDelegation() {
-    document.body.addEventListener('click', function(e) {
-      var target = e.target;
-      // Tombol lokasi (tanpa simpan settings)
-      if (target.id === 'locationBtn' || target.closest('#locationBtn')) {
-        fetchWeatherByCurrentLocation();
-      } else if (target.id === 'settingsBtn' || target.closest('#settingsBtn')) {
+        Core.showToast(err.message, 'danger');
         Core.setState({
-          currentView: 'settings'
+          currentView: 'settings', settings: Core.getState().settings || {}
         });
-        UI.renderSettingsView(Core.getState());
-      } else if (target.id === 'refreshWeatherBtn' || target.closest('#refreshWeatherBtn')) {
-        var state = Core.getState();
-        if (state.weather && state.weather.location) {
-          var loc = state.weather.location;
-          if (loc.latitude && loc.longitude) {
-            loadWeatherFromLocation(loc.latitude, loc.longitude);
-          } else if (loc.city) {
-            loadWeatherFromLocation(null, null, loc.city);
-          } else {
-            loadWeatherFromLocation(null, null, loc.name);
-          }
-        } else {
-          loadDefaultLocation();
-        }
-      } else if (target.id === 'backToWeatherBtn' || target.closest('#backToWeatherBtn')) {
-        Core.setState({
-          currentView: 'weather'
-        });
-        UI.renderWeatherView(Core.getState());
-      } else if (target.closest('.forecast-hour-card')) {
-        var card = target.closest('.forecast-hour-card');
-        var idx = card.getAttribute('data-index');
-        if (idx !== null) {
+      } finally {
+        Core.hideLoading();
+      }
+    }
+
+    // ======================== EVENT DELEGATION ========================
+    function setupEventDelegation() {
+      document.body.addEventListener('click', function(e) {
+        var target = e.target;
+        // Tombol lokasi
+        if (target.id === 'locationBtn' || target.closest('#locationBtn')) {
+          fetchWeatherByCurrentLocation();
+        } else if (target.id === 'settingsBtn' || target.closest('#settingsBtn')) {
+          Core.setState({
+            currentView: 'settings'
+          });
+          UI.renderSettingsView(Core.getState());
+        } else if (target.id === 'refreshWeatherBtn' || target.closest('#refreshWeatherBtn')) {
           var state = Core.getState();
-          UI.showForecastDetail(parseInt(idx), state);
-        }
-      } else if (target.id === 'autoLocationBtn' || target.closest('#autoLocationBtn')) {
-        (async function() {
-          var statusSpan = document.getElementById('locationStatus');
-          if (statusSpan) statusSpan.innerText = 'Meminta lokasi...';
-          try {
-            var loc = await getTelegramLocationWithTimeout(10000);
-            document.getElementById('latitude').value = loc.lat;
-            document.getElementById('longitude').value = loc.lon;
-            document.getElementById('city').value = '';
-            if (statusSpan) statusSpan.innerText = 'Lokasi berhasil diambil.';
-          } catch (err) {
-            try {
-              var locBrowser = await getBrowserLocationWithTimeout(10000);
-              document.getElementById('latitude').value = locBrowser.lat;
-              document.getElementById('longitude').value = locBrowser.lon;
-              document.getElementById('city').value = '';
-              if (statusSpan) statusSpan.innerText = 'Lokasi berhasil diambil (browser).';
-            } catch (err2) {
-              if (statusSpan) statusSpan.innerText = 'Gagal mengambil lokasi.';
-              Core.showToast(err2.message, 'danger');
+          if (state.weather && state.weather.location) {
+            var loc = state.weather.location;
+            if (loc.latitude && loc.longitude) {
+              loadWeatherFromLocation(loc.latitude, loc.longitude);
+            } else if (loc.city) {
+              loadWeatherFromLocation(null, null, loc.city);
+            } else {
+              loadWeatherFromLocation(null, null, loc.name);
             }
+          } else {
+            loadDefaultLocation();
           }
-        })();
-      }
-    });
+        } else if (target.id === 'backToWeatherBtn' || target.closest('#backToWeatherBtn')) {
+          Core.setState({
+            currentView: 'weather'
+          });
+          UI.renderWeatherView(Core.getState());
+        } else if (target.closest('.forecast-hour-card')) {
+          var card = target.closest('.forecast-hour-card');
+          var idx = card.getAttribute('data-index');
+          if (idx !== null) {
+            var state = Core.getState();
+            UI.showForecastDetail(parseInt(idx), state);
+          }
+        } else if (target.id === 'autoLocationBtn' || target.closest('#autoLocationBtn')) {
+          (async function() {
+            var statusSpan = document.getElementById('locationStatus');
+            if (statusSpan) statusSpan.innerText = 'Meminta lokasi...';
+            try {
+              var loc = await getBrowserLocation(10000);
+              document.getElementById('latitude').value = loc.lat;
+              document.getElementById('longitude').value = loc.lon;
+              document.getElementById('city').value = '';
+              if (statusSpan) statusSpan.innerText = 'Lokasi berhasil diambil.';
+            } catch (err) {
+              if (statusSpan) statusSpan.innerText = 'Gagal mengambil lokasi: ' + err.message;
+              Core.showToast(err.message, 'danger');
+            }
+          })();
+        }
+      });
 
-    document.body.addEventListener('submit', function(e) {
-      if (e.target && e.target.id === 'settingsForm') {
-        e.preventDefault();
-        var cityVal = document.getElementById('city').value;
-        var latVal = document.getElementById('latitude').value;
-        var lonVal = document.getElementById('longitude').value;
-        var notify = document.getElementById('notifications_enabled').checked;
-        var formData = {
-          city: cityVal || undefined,
-          latitude: latVal ? parseFloat(latVal): undefined,
-          longitude: lonVal ? parseFloat(lonVal): undefined,
-          notifications_enabled: notify
-        };
-        saveSettings(formData);
-      }
-    });
-  }
-
-  // ======================== SUBSCRIBE ========================
-  function onStateChange(state) {
-    if (state.currentView === 'weather') {
-      UI.renderWeatherView(state);
-    } else if (state.currentView === 'settings') {
-      UI.renderSettingsView(state);
+      document.body.addEventListener('submit', function(e) {
+        if (e.target && e.target.id === 'settingsForm') {
+          e.preventDefault();
+          var cityVal = document.getElementById('city').value;
+          var latVal = document.getElementById('latitude').value;
+          var lonVal = document.getElementById('longitude').value;
+          var notify = document.getElementById('notifications_enabled').checked;
+          var formData = {
+            city: cityVal || undefined,
+            latitude: latVal ? parseFloat(latVal): undefined,
+            longitude: lonVal ? parseFloat(lonVal): undefined,
+            notifications_enabled: notify
+          };
+          saveSettings(formData);
+        }
+      });
     }
-  }
 
-  // ======================== START ========================
-  Core.subscribe(onStateChange);
-  setupEventDelegation();
-  loadDefaultLocation();
-})(window, document);
+    // ======================== SUBSCRIBE ========================
+    function onStateChange(state) {
+      if (state.currentView === 'weather') {
+        UI.renderWeatherView(state);
+      } else if (state.currentView === 'settings') {
+        UI.renderSettingsView(state);
+      }
+    }
+
+    // ======================== START ========================
+    Core.subscribe(onStateChange);
+    setupEventDelegation();
+    loadDefaultLocation();
+  })(window, document);
