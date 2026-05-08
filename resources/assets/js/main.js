@@ -1,4 +1,4 @@
-// main.js - Weather (browser geolocation only, tanpa loading-view)
+// main.js - Weather (browser geolocation only, tanpa loading-view, loading ditangani dengan benar)
 (function(window, document, undefined) {
   'use strict';
 
@@ -33,33 +33,20 @@
   }
 
   async function fetchWeatherByCity(city) {
-    try {
-      Core.showLoading('Mengambil cuaca untuk ' + city + '...');
-      var res = await Core.api.post('/api/weather/current', {
-        city: city
-      });
-      if (!res.success) throw new Error(res.message);
-      return res.data;
-    } catch (err) {
-      throw err;
-    } finally {
-      Core.hideLoading();
-    }
+    // Tidak ada showLoading/hideLoading di sini, karena loading dikelola di level atas
+    var res = await Core.api.post('/api/weather/current', {
+      city: city
+    });
+    if (!res.success) throw new Error(res.message);
+    return res.data;
   }
 
   async function fetchWeatherByCoords(lat, lon) {
-    try {
-      Core.showLoading('Mengambil cuaca berdasarkan lokasi...');
-      var res = await Core.api.post('/api/weather/current', {
-        latitude: lat, longitude: lon
-      });
-      if (!res.success) throw new Error(res.message);
-      return res.data;
-    } catch (err) {
-      throw err;
-    } finally {
-      Core.hideLoading();
-    }
+    var res = await Core.api.post('/api/weather/current', {
+      latitude: lat, longitude: lon
+    });
+    if (!res.success) throw new Error(res.message);
+    return res.data;
   }
 
   async function fetchAdditionalData(lat, lon) {
@@ -140,6 +127,9 @@
         loading: false, error: err.message
       });
       Core.showToast('Gagal memuat cuaca: ' + err.message, 'danger');
+    } finally {
+      // Pastikan loading overlay dihilangkan setelah state diupdate (baik sukses atau error)
+      Core.hideLoading();
     }
   }
 
@@ -178,14 +168,14 @@
     async function fetchWeatherByCurrentLocation() {
       if (isGeolocating) return;
       isGeolocating = true;
+      Core.showLoading('Mendapatkan lokasi terkini...');
       try {
-        Core.showLoading('Mendapatkan lokasi terkini...');
         var loc = await getBrowserLocation(15000);
         await loadWeatherFromLocation(loc.lat, loc.lon);
       } catch (err) {
         Core.showToast(err.message, 'danger');
       } finally {
-        Core.hideLoading();
+        Core.hideLoading(); // tambahan, meskipun loadWeatherFromLocation sudah ada hideLoading
         isGeolocating = false;
       }
     }
@@ -193,8 +183,8 @@
     async function loadFromGeolocation() {
       if (isGeolocating) return;
       isGeolocating = true;
+      Core.showLoading('Meminta lokasi...');
       try {
-        Core.showLoading('Meminta lokasi...');
         var loc = await getBrowserLocation(15000);
         await loadWeatherFromLocation(loc.lat, loc.lon);
       } catch (err) {
@@ -205,15 +195,15 @@
         Core.setState({
           currentView: 'settings', settings: Core.getState().settings || {}
         });
-      } finally {
         Core.hideLoading();
+      } finally {
         isGeolocating = false;
       }
     }
 
     async function loadDefaultLocation() {
+      Core.showLoading('Memuat pengaturan...');
       try {
-        Core.showLoading('Memuat pengaturan...');
         var settings = await fetchSettings();
         if (settings.city) {
           await loadWeatherFromLocation(null, null, settings.city);
@@ -230,14 +220,15 @@
         Core.setState({
           currentView: 'settings', settings: Core.getState().settings || {}
         });
-      } finally {
         Core.hideLoading();
+      } finally {
+        // hideLoading sudah dipanggil di dalam loadWeatherFromLocation atau di catch
       }
     }
 
     async function saveSettings(formData) {
+      Core.showLoading('Menyimpan pengaturan...');
       try {
-        Core.showLoading('Menyimpan pengaturan...');
         var res = await Core.api.post('/api/weather/settings', formData);
         if (res.success) {
           Core.showToast('Pengaturan disimpan');
