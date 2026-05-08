@@ -193,8 +193,20 @@
       isGeolocating = true;
       Core.showLoading('Meminta lokasi...');
       try {
+        await fetchSettings();
         var loc = await getBrowserLocation(15000);
         await loadWeatherFromLocation(loc.lat, loc.lon);
+
+        var settings = Core.getState().settings;
+        var hasDefault = (settings && (settings.city || (settings.latitude && settings.longitude) ||
+          (settings.default_location && (settings.default_location.city || (settings.default_location.latitude && settings.default_location.longitude)))));
+        if (!hasDefault) {
+          var reminderKey = 'weather_reminder_save_location_shown';
+          if (!localStorage.getItem(reminderKey)) {
+            Core.showToast('💡 Tips: Simpan lokasi ini di Pengaturan agar tidak perlu izin lokasi setiap kali.', 'info', 10000);
+            localStorage.setItem(reminderKey, 'true');
+          }
+        }
       } catch (err) {
         Core.setState({
           loading: false, error: err.message
@@ -203,8 +215,8 @@
         Core.setState({
           currentView: 'settings', settings: Core.getState().settings || {}
         });
-        Core.hideLoading();
       } finally {
+        Core.hideLoading();
         isGeolocating = false;
       }
     }
