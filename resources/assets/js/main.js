@@ -9,6 +9,34 @@
     return;
   }
 
+  let isGeolocating = false;
+
+  async function fetchWeatherByCurrentLocation() {
+    if (isGeolocating) {
+      console.log('Geolocation already in progress');
+      return;
+    }
+    isGeolocating = true;
+    try {
+      Core.showLoading('Mendapatkan lokasi terkini...');
+      let location;
+      try {
+        location = await getTelegramLocation(15000);
+      } catch (e) {
+        console.warn('Telegram location gagal, fallback ke browser', e);
+        Core.showToast('Telegram: ' + e.message, 'warning');
+        location = await getBrowserLocation(15000);
+      }
+      // Panggil loadWeather dengan koordinat baru tanpa menyimpan ke settings
+      await loadWeather(location.lat, location.lon);
+    } catch (err) {
+      Core.showToast('Gagal mendapatkan lokasi: ' + err.message, 'danger');
+    } finally {
+      Core.hideLoading();
+      isGeolocating = false;
+    }
+  }
+
   // ======================== DATA FETCHING ========================
   async function fetchSettings() {
     try {
@@ -291,7 +319,9 @@
   function setupEventDelegation() {
     document.body.addEventListener('click', function(e) {
       var target = e.target;
-      if (target.id === 'settingsBtn' || target.closest('#settingsBtn')) {
+      if (target.id === 'locationBtn' || target.closest('#locationBtn')) {
+        fetchWeatherByCurrentLocation();
+      } else if (target.id === 'settingsBtn' || target.closest('#settingsBtn')) {
         Core.setState({
           currentView: 'settings'
         });
