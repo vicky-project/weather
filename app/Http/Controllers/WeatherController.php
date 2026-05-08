@@ -141,12 +141,25 @@ class WeatherController extends Controller
       return response()->json(['success' => false, 'message' => 'Koordinat diperlukan'], 400);
     }
 
-    $data = $this->weatherService->getUVIndex((float)$lat, (float)$lon, $timezone);
-    if (!$data) {
-      return response()->json(['success' => false, 'message' => 'Data indeks UV tidak tersedia'], 404);
-    }
+    try {
+      $data = $this->weatherService->getUVIndex((float)$lat, (float)$lon, $timezone);
+      if (!$data) {
+        return response()->json(['success' => false, 'message' => 'Data indeks UV tidak tersedia'], 404);
+      }
 
-    return response()->json(['success' => true, 'data' => $data]);
+      return response()->json(['success' => true, 'data' => $data]);
+    } catch(\Exception $e) {
+      \Log::error("UV index error", [
+        'message' => $e->getMessage(),
+        'trace' => $e->getTrace()
+      ]);
+
+      return response()->json([
+        'success' => false,
+        'data' => null,
+        'message' => $e->getMessage()
+      ], 500);
+    }
   }
 
   /**

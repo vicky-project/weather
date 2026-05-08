@@ -1,4 +1,4 @@
-// main.js - Weather (browser geolocation only, tanpa loading-view, loading ditangani dengan benar)
+// main.js - Weather (browser geolocation only, dengan loading overlay yang benar)
 (function(window, document, undefined) {
   'use strict';
 
@@ -10,6 +10,7 @@
   }
 
   var isGeolocating = false;
+  var isFetchingWeather = false;
 
   // ======================== DATA FETCHING ========================
   async function fetchSettings() {
@@ -33,7 +34,6 @@
   }
 
   async function fetchWeatherByCity(city) {
-    // Tidak ada showLoading/hideLoading di sini, karena loading dikelola di level atas
     var res = await Core.api.post('/api/weather/current', {
       city: city
     });
@@ -85,7 +85,15 @@
     }
   }
 
+  // Fungsi utama untuk memuat cuaca (menampilkan loading overlay)
   async function loadWeatherFromLocation(lat, lon, city) {
+    // Hindari multiple request bersamaan
+    if (isFetchingWeather) {
+      console.log('Weather fetch already in progress');
+      return;
+    }
+    isFetchingWeather = true;
+    Core.showLoading('Memuat data cuaca...');
     try {
       Core.setState({
         loading: true, error: null
@@ -128,8 +136,8 @@
       });
       Core.showToast('Gagal memuat cuaca: ' + err.message, 'danger');
     } finally {
-      // Pastikan loading overlay dihilangkan setelah state diupdate (baik sukses atau error)
       Core.hideLoading();
+      isFetchingWeather = false;
     }
   }
 
@@ -175,7 +183,7 @@
       } catch (err) {
         Core.showToast(err.message, 'danger');
       } finally {
-        Core.hideLoading(); // tambahan, meskipun loadWeatherFromLocation sudah ada hideLoading
+        Core.hideLoading();
         isGeolocating = false;
       }
     }
@@ -221,8 +229,6 @@
           currentView: 'settings', settings: Core.getState().settings || {}
         });
         Core.hideLoading();
-      } finally {
-        // hideLoading sudah dipanggil di dalam loadWeatherFromLocation atau di catch
       }
     }
 
