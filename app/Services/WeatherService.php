@@ -709,7 +709,7 @@ class WeatherService
     $currentData = $data['weather'] ?? [];
     $currentData['default_location'] = $locationData;
     $currentData['weather_notifications'] = $notificationsEnabled;
-    $data['weather'] = $currentData
+    $data['weather'] = $currentData;
     $telegramUser->data = $data;
     $telegramUser->save();
 
