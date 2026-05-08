@@ -267,7 +267,7 @@ class WeatherController extends Controller
   */
   protected function userHasDefaultLocation(TelegramUser $user): bool
   {
-    $data = $user->data ?? [];
+    $data = $user->data['weather'] ?? [];
     return !empty($data['default_location']);
   }
 }
