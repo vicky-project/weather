@@ -74,7 +74,8 @@
     var html = '<div class="card shadow">' +
     '<div class="card-header d-flex justify-content-between align-items-center">' +
     '<h4 class="mb-0"><i class="bi bi-cloud-sun me-2"></i>Informasi Cuaca</h4>' +
-    '<div>' +
+    '<div class="d-flex gap-1">' +
+    '<button id="locationBtn" class="btn btn-sm btn-outline-light" title="Lokasi saat ini"><i class="bi bi-geo-alt-fill"></i></button>' +
     '<button id="settingsBtn" class="btn btn-sm btn-outline-light"><i class="bi bi-gear-fill"></i></button>' +
     '<button id="refreshWeatherBtn" class="btn btn-sm btn-outline-light ms-2"><i class="bi bi-arrow-repeat"></i></button>' +
     '</div></div>' +
