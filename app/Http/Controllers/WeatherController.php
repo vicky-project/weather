@@ -112,12 +112,25 @@ class WeatherController extends Controller
       return response()->json(['success' => false, 'message' => 'Koordinat diperlukan'], 400);
     }
 
-    $data = $this->weatherService->getAirQuality((float)$lat, (float)$lon);
-    if (!$data) {
-      return response()->json(['success' => false, 'message' => 'Data kualitas udara tidak tersedia'], 404);
-    }
+    try {
+      $data = $this->weatherService->getAirQuality((float)$lat, (float)$lon);
+      if (!$data) {
+        return response()->json(['success' => false, 'message' => 'Data kualitas udara tidak tersedia'], 404);
+      }
 
-    return response()->json(['success' => true, 'data' => $data]);
+      return response()->json(['success' => true, 'data' => $data]);
+    } catch(\Exception $e) {
+      \Log::error("Air Quality error.", [
+        'message' => $e->getMessage(),
+        'trace' => $e->getTrace()
+      ]);
+
+      return response()->json([
+        'success' => false,
+        'data' => null,
+        'message' => $e->getMessage()
+      ], 500);
+    }
   }
 
   public function getUVIndex(Request $request) {
