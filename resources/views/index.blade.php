@@ -5,12 +5,6 @@
 @section('content')
 <div class="container py-0" style="max-width:600px; margin:0 auto;">
   <div id="weather-app">
-    <div id="loading-view" class="text-center py-5">
-      <div class="spinner-border text-primary" role="status"></div>
-      <p class="mt-2 text-muted">
-        Memuat data cuaca...
-      </p>
-    </div>
     <div id="weather-view" style="display:none;"></div>
     <div id="settings-view" style="display:none;"></div>
 
@@ -100,7 +94,6 @@
   .detail-item .label {
     opacity: 0.8;
   }
-  /* Perbaiki kontras forecast card */
   .forecast-hour-card {
     background-color: var(--tg-theme-bg-color) !important;
     border: 1px solid var(--tg-theme-section-separator-color) !important;
@@ -114,7 +107,6 @@
   .forecast-hour-card:hover {
     background-color: var(--tg-theme-hint-color) !important;
   }
-  /* Modal agar sesuai tema */
   .modal-content {
     background-color: var(--tg-theme-bg-color);
     color: var(--tg-theme-text-color);
@@ -161,7 +153,7 @@
 @push('scripts')
 <script src="//cdn.jsdelivr.net/npm/eruda"></script>
 <script>
-  eruda.init(); // Ikon Eruda akan muncul
+  eruda.init();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
