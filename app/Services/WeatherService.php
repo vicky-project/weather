@@ -101,7 +101,23 @@ class WeatherService
   }
 
   /**
-  * Dapatkan cuaca berdasarkan koordinat.
+  * Dapatkan cuaca berdasarkan nama kota (prioritaskan geocoding)
+  */
+  protected function getWeatherByCityName(string $city, ?string $countryCode = null): ?array
+  {
+    // Langsung lakukan geocoding untuk mendapatkan koordinat
+    $coordinates = $this->geocodeCity($city, $countryCode);
+    if (!$coordinates) {
+      Log::warning('Geocoding gagal untuk kota', ['city' => $city, 'country_code' => $countryCode]);
+      return null;
+    }
+
+    // Gunakan koordinat untuk ambil cuaca
+    return $this->getWeatherByCoordinates($coordinates['lat'], $coordinates['lon']);
+  }
+
+  /**
+  * Dapatkan cuaca berdasarkan koordinat (dengan penanganan error lebih baik)
   */
   protected function getWeatherByCoordinates(float $lat, float $lon): ?array
   {
@@ -127,10 +143,16 @@ class WeatherService
         return null;
       }
 
+      // Konversi ke object untuk digunakan di formatWeatherData
       $rawData = json_decode(json_encode($data));
+      if (!$rawData || !isset($rawData->main) || !isset($rawData->weather[0])) {
+        Log::warning('Weather data structure incomplete');
+        return null;
+      }
+
       return $this->formatWeatherData($rawData);
     } catch (Throwable $e) {
-      Log::warning('Gagal get weather by coordinates', [
+      Log::error('Gagal get weather by coordinates', [
         'lat' => $lat,
         'lon' => $lon,
         'error' => $e->getMessage()
@@ -140,66 +162,77 @@ class WeatherService
   }
 
   /**
-  * Dapatkan cuaca berdasarkan nama kota dengan fallback geocoding.
+  * Format data cuaca dengan aman (tambah pengecekan properti)
   */
-  protected function getWeatherByCityName(string $city, ?string $countryCode = null): ?array
+  protected function formatWeatherData(object $rawData): array
   {
-    // Coba langsung dengan nama kota (mungkin + country code jika ada)
-    $query = $city;
-    if ($countryCode) {
-      $query = $city . ',' . $countryCode;
+    $coord = $rawData->coord ?? null;
+    $main = $rawData->main ?? null;
+    $weather = $rawData->weather[0] ?? null;
+    $wind = $rawData->wind ?? null;
+    $clouds = $rawData->clouds ?? null;
+    $sys = $rawData->sys ?? null;
+    $visibility = $rawData->visibility ?? null;
+    $timezoneOffset = $rawData->timezone ?? 0;
+
+    // Validasi minimal data yang diperlukan
+    if (!$main || !$weather) {
+      throw new \Exception('Data cuaca tidak lengkap');
     }
 
-    try {
-      $response = Http::get(config("weather.openweather.base_url") . "/weather", [
-        'q' => $query,
-        'units' => 'metric',
-        'appid' => $this->apiKey,
-      ]);
-
-      if ($response->successful()) {
-        $data = $response->json();
-        if (($data['cod'] ?? 200) == 200) {
-          $rawData = json_decode(json_encode($data));
-          return $this->formatWeatherData($rawData);
-        }
-      }
-    } catch (Throwable $e) {
-      Log::warning('Langsung gagal, coba geocoding', ['city' => $city, 'error' => $e->getMessage()]);
-    }
-
-    // Fallback: geocoding
-    $coordinates = $this->geocodeCity($city, $countryCode);
-    if (!$coordinates) {
-      Log::warning('Geocoding gagal untuk kota', ['city' => $city, 'country_code' => $countryCode]);
-      return null;
-    }
-
-    return $this->getWeatherByCoordinates($coordinates['lat'], $coordinates['lon']);
+    return [
+      'location' => [
+        'name' => $rawData->name ?? 'Lokasi tidak diketahui',
+        'country' => $sys->country ?? null,
+        'latitude' => $coord->lat ?? null,
+        'longitude' => $coord->lon ?? null,
+        'timezone_offset' => $timezoneOffset
+      ],
+      'current' => [
+        'temperature' => round($main->temp ?? 0),
+        'feels_like' => round($main->feels_like ?? 0),
+        'humidity' => $main->humidity ?? 0,
+        'pressure' => $main->pressure ?? 0,
+        'wind_speed' => $wind->speed ?? 0,
+        'wind_deg' => $wind->deg ?? 0,
+        'clouds' => $clouds->all ?? 0,
+        'visibility' => $visibility,
+      ],
+      'weather' => [
+        'main' => $weather->main ?? null,
+        'description' => $weather->description ?? null,
+        'icon' => $weather->icon ?? null,
+      ],
+      'sun' => [
+        'rise' => isset($sys->sunrise) ? date('H:i', $sys->sunrise + $rawData->timezone) : null,
+        'set' => isset($sys->sunset) ? date('H:i', $sys->sunset + $rawData->timezone) : null,
+      ],
+      'updated_at' => now()->toIso8601String(),
+    ];
   }
 
   /**
-  * Geocoding: dapatkan koordinat dari nama kota dengan prioritas Indonesia (jika countryCode tidak diberikan).
+  * Geocoding dengan tambahan logging dan fallback
   */
   protected function geocodeCity(string $city, ?string $countryCode = null): ?array
   {
     try {
-      // Jika countryCode diberikan, cari spesifik negara itu
+      // Jika countryCode diberikan, cari spesifik
       if ($countryCode) {
         $result = $this->searchGeocoding($city, $countryCode);
         if ($result) {
           return $result;
         }
-        // Jika gagal dengan negara tertentu, tetap coba global (tanpa filter)
+        // Jika gagal dengan negara tertentu, coba tanpa filter (global)
       }
 
-      // 1. Coba dengan prioritas Indonesia jika countryCode tidak diberikan atau null
+      // Coba dengan prioritas Indonesia jika countryCode tidak diberikan atau gagal
       $indonesianLocation = $this->searchGeocoding($city, 'ID');
       if ($indonesianLocation) {
         return $indonesianLocation;
       }
 
-      // 2. Cari global
+      // Cari global
       $response = Http::get($this->geocodingUrl, [
         'q' => $city,
         'limit' => 5,
@@ -207,11 +240,13 @@ class WeatherService
       ]);
 
       if (!$response->successful()) {
+        Log::warning('Geocoding API error', ['status' => $response->status()]);
         return null;
       }
 
       $locations = $response->json();
       if (empty($locations)) {
+        Log::warning('Geocoding no results', ['city' => $city]);
         return null;
       }
 
@@ -315,52 +350,6 @@ class WeatherService
     return $scored;
   }
 
-  /**
-  * Format data cuaca dengan aman.
-  */
-  protected function formatWeatherData(object $rawData): array
-  {
-    $coord = $rawData->coord ?? null;
-    $main = $rawData->main ?? null;
-    $weather = $rawData->weather[0] ?? null;
-    $wind = $rawData->wind ?? null;
-    $clouds = $rawData->clouds ?? null;
-    $sys = $rawData->sys ?? null;
-    $visibility = $rawData->visibility ?? null;
-    $timezoneOffset = $rawData->timezone ?? 0;
-
-    return [
-      'location' => [
-        'name' => $rawData->name ?? 'Lokasi tidak diketahui',
-        'country' => $sys->country ?? null,
-        'latitude' => $coord->lat ?? null,
-        'longitude' => $coord->lon ?? null,
-        'timezone_offset' => $timezoneOffset
-      ],
-      'current' => [
-        'temperature' => round($main->temp ?? 0),
-        'feels_like' => round($main->feels_like ?? 0),
-        'humidity' => $main->humidity ?? 0,
-        'pressure' => $main->pressure ?? 0,
-        'wind_speed' => $wind->speed ?? 0,
-        'wind_deg' => $wind->deg ?? 0,
-        'clouds' => $clouds->all ?? 0,
-        'visibility' => $visibility,
-      ],
-      'weather' => [
-        'main' => $weather->main ?? null,
-        'description' => $weather->description ?? null,
-        'icon' => $weather->icon ?? null,
-      ],
-      'sun' => [
-        'rise' => isset($sys->sunrise) ? date('H:i',
-          $sys->sunrise + $rawData->timezone) : null,
-        'set' => isset($sys->sunset) ? date('H:i',
-          $sys->sunset + $rawData->timezone) : null,
-      ],
-      'updated_at' => now()->toIso8601String(),
-    ];
-  }
 
   /**
   * Mendapatkan data forecast per jam (24 jam ke depan)
