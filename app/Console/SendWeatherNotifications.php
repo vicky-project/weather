@@ -15,9 +15,7 @@ class SendWeatherNotifications extends Command
 
   protected $weatherService;
 
-  public function __construct(
-    WeatherService $weatherService
-  ) {
+  public function __construct(WeatherService $weatherService) {
     parent::__construct();
     $this->weatherService = $weatherService;
   }
@@ -26,11 +24,8 @@ class SendWeatherNotifications extends Command
     $this->info('Memulai pengiriman notifikasi cuaca...');
     \Log::info("Command SendWeatherNotifications started...");
 
-    // Ambil semua user yang mengaktifkan notifikasi cuaca
-    $users = TelegramUser::all()->filter(function ($user) {
-      $data = $user->data['weather'] ?? [];
-      return ($data['weather_notifications'] ?? false) === true;
-    });
+    // Ambil semua user yang mengaktifkan notifikasi cuaca (struktur baru)
+    $users = TelegramUser::whereRaw('JSON_EXTRACT(data, "$.weather.notifications_enabled") = true')->get();
 
     if ($users->isEmpty()) {
       $this->info('Tidak ada pengguna dengan notifikasi cuaca aktif.');
@@ -47,11 +42,11 @@ class SendWeatherNotifications extends Command
     foreach ($users as $user) {
       try {
         $userData = $user->data ?? [];
-        $data = $userData['weather'] ?? [];
-        $defaultLocation = $data['default_location'] ?? [];
+        $weather = $userData['weather'] ?? [];
+        $defaultLocation = $weather['default_location'] ?? [];
 
         if (empty($defaultLocation)) {
-          $this->info("User tidak menyimpan lokasi default.");
+          $this->warn("User {$user->telegram_id} tidak menyimpan lokasi default.");
           \Log::warning("User has no default location", [
             "telegram_id" => $user->telegram_id
           ]);
@@ -60,7 +55,7 @@ class SendWeatherNotifications extends Command
         }
 
         // Ambil history pengiriman notifikasi cuaca
-        $weatherNotificationsSent = $data['weather_notifications_sent'] ?? [];
+        $weatherNotificationsSent = $weather['notifications_sent'] ?? [];
         if (!is_array($weatherNotificationsSent)) {
           $weatherNotificationsSent = [];
         }
@@ -93,12 +88,10 @@ class SendWeatherNotifications extends Command
         $user->notify(new WeatherSent($weatherData));
 
         // Tandai slot ini sebagai sudah dikirim
-        if (!isset($weatherNotifications[$today]) || !is_array($weatherNotifications[$today])) {
-          $weatherNotifications[$today] = [];
-        }
         $weatherNotificationsSent[$today][$slot] = true;
-        $data['weather_notifications_sent'] = $weatherNotificationsSent;
-        $userData['weather'] = $data;
+        // Simpan kembali ke struktur
+        $weather['notifications_sent'] = $weatherNotificationsSent;
+        $userData['weather'] = $weather;
         $user->data = $userData;
         $user->save();
 
@@ -108,14 +101,13 @@ class SendWeatherNotifications extends Command
           "slot" => $slot
         ]);
         $sentCount++;
-      } catch(\Exception $e) {
-        \Log::error("Failed to sent weather notification.", [
+      } catch (\Exception $e) {
+        \Log::error("Failed to send weather notification.", [
           'telegram_id' => $user->telegram_id,
           'message' => $e->getMessage(),
           'trace' => $e->getTraceAsString()
         ]);
-
-        $this->error("Gagal kirim pesan notifikasi cuaca.");
+        $this->error("Gagal kirim notifikasi cuaca untuk user {$user->telegram_id}");
         $failCount++;
       }
     }
