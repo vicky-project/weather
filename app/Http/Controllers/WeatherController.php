@@ -107,7 +107,7 @@ class WeatherController extends Controller
 
     $location = null;
     if ($telegramUser && $this->userHasDefaultLocation($telegramUser)) {
-      $location = $telegramUser->data['default_location'] ?? null;
+      $location = $telegramUser->data['weather']['default_location'] ?? null;
     } else {
       $city = $request->input('city');
       $lat = $request->input('latitude');
