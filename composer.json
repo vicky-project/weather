@@ -10,6 +10,7 @@
   "require": {
     "php": "^8.2",
     "joshbrw/laravel-module-installer": "^1.0",
+    "nnjeim/world": "^1.1",
     "vicky-project/users-module": "^1.0",
     "vicky-project/telegram-module": "^1.0"
   },
