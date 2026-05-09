@@ -264,17 +264,17 @@
 
     var html = '<div class="card shadow">' +
     '<div class="card-header d-flex justify-content-between align-items-center">' +
-    '<h4 class="mb-0"><i class="bi bi-gear-fill me-2"></i>Pengaturan Cuaca</h4>' +
+    '<h4 class="mb-0"><i class="bi bi-gear-fill me-2"></i>Pengaturan</h4>' +
     '<button id="backToWeatherBtn" class="btn btn-sm btn-outline-light"><i class="bi bi-arrow-left"></i> Kembali</button>' +
     '</div>' +
     '<div class="card-body">' +
     '<form id="settingsForm">' +
     '<h5>Lokasi Default</h5>' +
     '<p class="text-muted small">Kosongkan untuk meminta lokasi setiap kali.</p>' +
-    '<div class="mb-3"><label class="form-label">Nama Kota</label><input type="text" class="form-control" id="city" value="' + Core.escapeHtml(city) + '" placeholder="Contoh: Jakarta"></div>' +
+    '<div class="mb-3"><label for="city" class="form-label">Nama Kota</label><input type="text" class="form-control" id="city" value="' + Core.escapeHtml(city) + '" placeholder="Contoh: Jakarta"></div>' +
     '<div class="row">' +
-    '<div class="col-md-6 mb-3"><label class="form-label">Latitude</label><input type="number" step="any" class="form-control" id="latitude" value="' + Core.escapeHtml(lat) + '" placeholder="-6.2088"></div>' +
-    '<div class="col-md-6 mb-3"><label class="form-label">Longitude</label><input type="number" step="any" class="form-control" id="longitude" value="' + Core.escapeHtml(lon) + '" placeholder="106.8456"></div>' +
+    '<div class="col-md-6 mb-3"><label for="latitude" class="form-label">Latitude</label><input type="number" step="any" class="form-control" id="latitude" value="' + Core.escapeHtml(lat) + '" placeholder="-6.2088"></div>' +
+    '<div class="col-md-6 mb-3"><label for="longitude" class="form-label">Longitude</label><input type="number" step="any" class="form-control" id="longitude" value="' + Core.escapeHtml(lon) + '" placeholder="106.8456"></div>' +
     '</div>' +
     '<div class="mb-3"><button type="button" class="btn btn-outline-primary" id="autoLocationBtn"><i class="bi bi-geo-alt me-2"></i>Ambil lokasi saat ini</button><span class="text-muted ms-2" id="locationStatus"></span></div>' +
     '<hr>' +
