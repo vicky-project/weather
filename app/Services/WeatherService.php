@@ -668,7 +668,7 @@ class WeatherService
     $data = $telegramUser->data ?? [];
     $currentData = $data['weather'] ?? [];
     $currentData['default_location'] = $locationData;
-    $currentData['weather_notifications'] = $notificationsEnabled;
+    $currentData['notifications_enabled'] = $notificationsEnabled;
     $data['weather'] = $currentData;
     $telegramUser->data = $data;
     $telegramUser->save();
@@ -686,7 +686,7 @@ class WeatherService
       'latitude' => $data['default_location']['latitude'] ?? null,
       'longitude' => $data['default_location']['longitude'] ?? null,
       'country_code' => $data['default_location']['country_code'] ?? null,
-      'notifications_enabled' => $data['weather_notifications'] ?? false,
+      'notifications_enabled' => $data['notifications_enabled'] ?? false,
     ];
   }
 
