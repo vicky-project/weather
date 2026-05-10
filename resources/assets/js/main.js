@@ -58,7 +58,7 @@
       });
       if (aqiRes.success) aqi = aqiRes.data;
     } catch(e) {
-      console.warn('AQI fetch error:', e);
+      Core.showToast('AQI fetch error:' + e.message, 'danger');
     }
     try {
       var uvRes = await Core.api.post('/api/weather/uv-index', {
@@ -66,7 +66,7 @@
       });
       if (uvRes.success) uv = uvRes.data;
     } catch(e) {
-      console.warn('UV fetch error:', e);
+      Core.showToast('UV fetch error:'+ e, 'danger');
     }
     return {
       aqi: aqi,
@@ -80,7 +80,7 @@
       if (res.success) return res.data;
       else return null;
     } catch (err) {
-      console.warn('Forecast fetch error:', err);
+      Core.showToast('Forecast fetch error:'+ err, 'danger');
       return null;
     }
   }
@@ -89,7 +89,6 @@
   async function loadWeatherFromLocation(lat, lon, city) {
     // Hindari multiple request bersamaan
     if (isFetchingWeather) {
-      console.log('Weather fetch already in progress');
       return;
     }
     isFetchingWeather = true;
